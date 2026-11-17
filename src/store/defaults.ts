@@ -25,6 +25,6 @@ export function initialState(): AppState {
     bonusXp: 0,
     coins: 0,
     equippedTitle: null,
-    settings: { unit: 'kg', haptics: true, tempoCue: true },
+    settings: { unit: 'kg', haptics: true, tempoCue: false },
   };
 }

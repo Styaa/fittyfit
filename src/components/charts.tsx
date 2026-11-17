@@ -58,8 +58,13 @@ export function Ring({
   color?: string;
 }) {
   const r = (size - stroke * 2) / 2;
-  const circ = 2 * Math.PI * r;
-  const p = Math.max(0, Math.min(1, progress));
+  const c = size / 2;
+  const p = Math.max(0, Math.min(0.9999, progress));
+  // busur dari jam 12 searah jarum jam (tanpa transform/rotation agar aman di web)
+  const ang = p * 2 * Math.PI;
+  const ex = c + r * Math.sin(ang);
+  const ey = c - r * Math.cos(ang);
+  const arc = `M ${c} ${c - r} A ${r} ${r} 0 ${p > 0.5 ? 1 : 0} 1 ${ex} ${ey}`;
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={{ position: 'absolute' }}>
@@ -69,20 +74,8 @@ export function Ring({
             <Stop offset="1" stopColor={C.primary} />
           </LinearGradient>
         </Defs>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke="#211c2e" strokeWidth={stroke} fill="rgba(20,16,32,0.6)" />
-        <G rotation={-90} origin={`${size / 2}, ${size / 2}`}>
-          <Circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            stroke="url(#rg)"
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            fill="none"
-            strokeDasharray={`${circ} ${circ}`}
-            strokeDashoffset={circ * (1 - p)}
-          />
-        </G>
+        <Circle cx={c} cy={c} r={r} stroke="#211c2e" strokeWidth={stroke} fill="rgba(20,16,32,0.6)" />
+        {p > 0.001 && <Path d={arc} stroke="url(#rg)" strokeWidth={stroke} strokeLinecap="round" fill="none" />}
       </Svg>
       {children}
     </View>

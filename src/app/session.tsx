@@ -20,8 +20,6 @@ import {
   levelInfo,
   parseTempo,
   personalRecords,
-  PHASE_NAMES,
-  PHASES,
   sessionVolume,
   toUnit,
   totalXp,
@@ -372,18 +370,14 @@ function SetScreen({
   const elapsedMs = running ? (paused ? pausedAt.current : now) - startRef.current - pausedTotal.current : 0;
   const elapsed = Math.max(0, elapsedMs / 1000);
 
-  // fase tempo
+  // fase tempo (hanya untuk getar opsional di System → Tempo cue)
   let phaseIdx = -1;
-  let phaseProgress = 0;
-  let repsDone = 0;
   if (tempo && running) {
-    repsDone = Math.floor(elapsed / cycle);
     let t = elapsed % cycle;
     for (let i = 0; i < 4; i++) {
       if (tempo[i] === 0) continue;
       if (t < tempo[i]) {
         phaseIdx = i;
-        phaseProgress = t / tempo[i];
         break;
       }
       t -= tempo[i];
@@ -416,7 +410,6 @@ function SetScreen({
       setPaused(true);
     }
     if (hold && elapsed > 0) setReps(Math.round(elapsed));
-    else if (tempo && repsDone > 0) setReps(repsDone);
     setCountdownEnd(0);
     setLogOpen(true);
   };
@@ -437,14 +430,14 @@ function SetScreen({
     onLogged();
   };
 
-  const ringProgress = !running
-    ? 1 - Math.max(0, countdownEnd - now) / 3000
-    : hold
-      ? Math.min(1, elapsed / e.repMax)
-      : tempo
-        ? phaseProgress
-        : (elapsed % 60) / 60;
+  const ringProgress = !running ? 1 - Math.max(0, countdownEnd - now) / 3000 : hold ? Math.min(1, elapsed / e.repMax) : (elapsed % 60) / 60;
   const holdReached = hold && elapsed >= e.repMin;
+  const demo = hasDemo(e.name);
+  const ringSize = demo ? 206 : 250;
+  const target = hold
+    ? `${e.repMin}–${e.repMax} detik`
+    : `${e.mode === 'amrap' ? 'AMRAP ' : ''}${e.repMin}–${e.repMax} reps${e.perSide ? ' /sisi' : ''}`;
+  const rirText = hold ? '—' : (e.rirLabel ?? String(e.rir)).split(' ')[0];
 
   return (
     <Screen
@@ -463,79 +456,60 @@ function SetScreen({
           right={<IconButton name="information-outline" color={C.textDim} onPress={() => setGuideOpen(true)} />}
         />
       }>
-      {tempo ? (
-        <View style={styles.phases}>
-          {PHASES.map((p, i) => {
-            const on = i === phaseIdx;
-            const past = phaseIdx > i;
-            return (
-              <React.Fragment key={i}>
-                {i > 0 && <View style={[styles.phaseLine, (past || on) && { backgroundColor: C.lavender }]} />}
-                <View style={{ alignItems: 'center', gap: 8, width: 58 }}>
-                  <View style={[styles.phaseDot, on && styles.phaseDotOn, tempo[i] === 0 && { opacity: 0.35 }]}>
-                    <Text style={[styles.phaseNum, on && { color: '#2a1366' }]}>{tempo[i]}</Text>
-                  </View>
-                  <Text style={[styles.phaseLabel, on && { color: C.lavender }]}>{p}</Text>
-                </View>
-              </React.Fragment>
-            );
-          })}
-        </View>
-      ) : (
-        <View style={{ height: 16 }} />
-      )}
-
       {techNow ? (
         <View style={styles.techBanner}>
-          <Icon name="skull-outline" size={18} color={C.danger} />
-          <View style={{ flex: 1 }}>
-            <Label color={C.danger}>Set terakhir · {TECH_LABEL[techNow.kind]}</Label>
-            <Body size={12} color={C.text}>
-              {techNow.note}
-            </Body>
-          </View>
+          <Icon name="skull-outline" size={16} color={C.danger} />
+          <Body size={12} color={C.text} style={{ flex: 1 }}>
+            <Text style={{ color: C.danger, fontFamily: F.title }}>Set terakhir · {TECH_LABEL[techNow.kind]}: </Text>
+            {techNow.note.replace(/^Set terakhir:\s*/i, '')}
+          </Body>
         </View>
       ) : null}
 
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <View>
-          <Ring size={270} progress={ringProgress} stroke={8}>
-            {!running ? (
-              <>
-                <Text style={styles.countdown}>{Math.max(1, countdown)}</Text>
-                <View style={styles.phasePill}>
-                  <Text style={styles.phasePillText}>GET READY</Text>
-                </View>
-              </>
-            ) : (
-              <>
-                <Text style={styles.ringClock}>{fmtClock(elapsed)}</Text>
-                <View style={styles.phasePill}>
-                  <Text style={[styles.phasePillText, holdReached && { color: C.success }]}>
-                    {paused ? 'PAUSED' : hold ? (holdReached ? 'TARGET TERCAPAI' : 'TAHAN') : tempo && phaseIdx >= 0 ? PHASE_NAMES[phaseIdx] : 'TIME UNDER TENSION'}
-                  </Text>
-                </View>
-              </>
-            )}
-          </Ring>
+      {demo ? (
+        <View style={{ marginTop: 12 }}>
+          <MoveDemo name={e.name} tempo={e.tempo} height={180} />
         </View>
+      ) : null}
+
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}>
+        <Ring size={ringSize} progress={ringProgress} stroke={7}>
+          {!running ? (
+            <>
+              <Text style={[styles.countdown, demo && { fontSize: 64, lineHeight: 70 }]}>{Math.max(1, countdown)}</Text>
+              <View style={styles.phasePill}>
+                <Text style={styles.phasePillText}>GET READY</Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.ringClock, demo && { fontSize: 50, lineHeight: 56 }]}>{fmtClock(elapsed)}</Text>
+              <View style={styles.phasePill}>
+                <Text style={[styles.phasePillText, holdReached && { color: C.success }]}>
+                  {paused ? 'PAUSED' : hold ? (holdReached ? 'TARGET TERCAPAI' : 'TAHAN') : 'SET BERJALAN'}
+                </Text>
+              </View>
+            </>
+          )}
+        </Ring>
       </View>
 
       <View style={styles.progressCard}>
         <View style={{ flex: 1 }}>
-          <Label color={C.textMuted}>Progress</Label>
-          <Text style={styles.reps}>
-            {hold
-              ? `${Math.floor(elapsed)}/${e.repMin}–${e.repMax}s`
-              : `${e.mode === 'amrap' ? 'AMRAP ' : 'REPS '}${tempo ? repsDone : '—'}/${e.mode === 'amrap' ? `${e.repMin}+` : e.repMax}`}
-          </Text>
+          <Label color={C.textMuted}>Target</Label>
+          <Text style={styles.reps}>{target}</Text>
+          {e.tempo ? (
+            <Mono size={11} color={C.textFaint} style={{ marginTop: 4 }}>
+              tempo {e.tempo.split('').join('-')}
+            </Mono>
+          ) : null}
         </View>
         <View style={{ width: 1, alignSelf: 'stretch', backgroundColor: C.borderMuted, marginHorizontal: 12 }} />
         <View style={{ alignItems: 'flex-end' }}>
-          <Label color={C.textMuted}>RIR Target</Label>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
-            <Text style={styles.reps}>{hold ? '—' : (e.rirLabel ?? e.rir).toString().split(' ')[0]}</Text>
-            {!hold && e.rir <= 1 && <Icon name="skull-outline" color={C.danger} size={26} />}
+          <Label color={C.textMuted}>RIR</Label>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <Text style={styles.reps}>{rirText}</Text>
+            {!hold && e.rir <= 1 && <Icon name="skull-outline" color={C.danger} size={20} />}
           </View>
         </View>
       </View>
@@ -740,20 +714,14 @@ const styles = StyleSheet.create({
   techBanner: {
     flexDirection: 'row',
     gap: 10,
-    alignItems: 'flex-start',
-    marginTop: 14,
+    alignItems: 'center',
+    marginTop: 10,
     borderWidth: 1,
     borderColor: hexA(C.danger, 0.4),
     backgroundColor: 'rgba(248,113,113,0.07)',
     borderRadius: 10,
-    padding: 12,
+    padding: 10,
   },
-  phases: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', marginTop: 28 },
-  phaseLine: { width: 28, height: 4, borderRadius: 2, backgroundColor: '#2a2535', marginTop: 16, marginHorizontal: -4 },
-  phaseDot: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: '#3a3448', backgroundColor: '#211d2c', alignItems: 'center', justifyContent: 'center' },
-  phaseDotOn: { backgroundColor: C.lavender, borderColor: C.lavender, ...glow(C.primary, 14, 0.7) },
-  phaseNum: { fontFamily: F.mono, color: C.text, fontSize: 15 },
-  phaseLabel: { fontFamily: F.title, color: C.textMuted, fontSize: 12, letterSpacing: 1.6 },
   countdown: { fontFamily: F.display, color: C.lavender, fontSize: 96, lineHeight: 104 },
   ringClock: { fontFamily: F.display, color: C.lavenderSoft, fontSize: 58, lineHeight: 64, textShadowColor: 'rgba(196,181,253,0.5)', textShadowRadius: 14 },
   phasePill: { borderWidth: 1, borderColor: '#4a4458', backgroundColor: 'rgba(40,34,56,0.8)', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 6, marginTop: 6 },
@@ -768,7 +736,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 16,
   },
-  reps: { fontFamily: F.title, color: C.text, fontSize: 30, marginTop: 4 },
+  reps: { fontFamily: F.title, color: C.text, fontSize: 22, marginTop: 4 },
   pauseBtn: { width: 84, height: 64, borderRadius: 14, borderWidth: 1.5, borderColor: C.lavender, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surface },
   rirBtn: { flex: 1, height: 48, borderRadius: 8, borderWidth: 1, borderColor: C.borderMuted, alignItems: 'center', justifyContent: 'center' },
   rirText: { fontFamily: F.monoBold, fontSize: 18, color: C.textMuted },
