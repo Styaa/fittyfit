@@ -1,0 +1,284 @@
+import { addDays, dayKey, parseDay, weekKey, weekStart } from './dates';
+import type { AppState, Attr, Rank, Session, SetLog, Unit } from './types';
+
+// ---------- Satuan ----------
+export const KG_TO_LBS = 2.20462;
+export const toUnit = (kg: number, unit: Unit) => (unit === 'kg' ? kg : kg * KG_TO_LBS);
+export const fromUnit = (v: number, unit: Unit) => (unit === 'kg' ? v : v / KG_TO_LBS);
+export const fmtLoad = (kg: number, unit: Unit) => {
+  const v = toUnit(kg, unit);
+  return (Math.round(v * 10) / 10).toString();
+};
+export const fmtBig = (n: number) =>
+  n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(Math.round(n));
+
+// ---------- Tempo ----------
+export const PHASES = ['ECC', 'PAUSE', 'CON', 'PAUSE'] as const;
+export const PHASE_NAMES = ['ECCENTRIC PHASE', 'BOTTOM PAUSE', 'CONCENTRIC PHASE', 'TOP PAUSE'];
+export function parseTempo(t: string): number[] | null {
+  if (!t || t.length !== 4) return null;
+  const arr = t.split('').map((c) => (c.toUpperCase() === 'X' ? 1 : parseInt(c, 10)));
+  if (arr.some((n) => isNaN(n))) return null;
+  if (arr.reduce((a, b) => a + b, 0) === 0) return null;
+  return arr;
+}
+
+// ---------- Volume / XP ----------
+export const setVolume = (s: SetLog) => s.loadKg * s.reps;
+export const sessionVolume = (s: Session) => s.sets.reduce((a, x) => a + setVolume(x), 0);
+export const sessionTut = (s: Session) => s.sets.reduce((a, x) => a + x.tutSec, 0);
+
+export function computeSessionXp(s: Session) {
+  return 50 + s.sets.length * 10 + Math.floor(sessionVolume(s) / 100);
+}
+
+export const totalXp = (st: AppState) => st.sessions.reduce((a, s) => a + s.xp, 0) + st.bonusXp;
+
+export const xpForLevel = (level: number) => 250 * level;
+
+export function levelInfo(xp: number) {
+  let level = 1;
+  let rest = xp;
+  while (rest >= xpForLevel(level)) {
+    rest -= xpForLevel(level);
+    level++;
+  }
+  return { level, current: rest, needed: xpForLevel(level) };
+}
+
+export function rankFor(level: number): Rank {
+  if (level >= 70) return 'S';
+  if (level >= 50) return 'A';
+  if (level >= 35) return 'B';
+  if (level >= 20) return 'C';
+  if (level >= 10) return 'D';
+  return 'E';
+}
+
+// ---------- Streak ----------
+export function activeDays(st: AppState): Set<string> {
+  const set = new Set<string>(st.restDays);
+  st.sessions.forEach((s) => set.add(dayKey(s.startedAt)));
+  return set;
+}
+export function trainingDays(st: AppState): Set<string> {
+  return new Set(st.sessions.map((s) => dayKey(s.startedAt)));
+}
+
+export function currentStreak(st: AppState) {
+  const days = activeDays(st);
+  let d = new Date();
+  // Hari ini belum latihan tidak memutus streak
+  if (!days.has(dayKey(d))) d = addDays(d, -1);
+  let n = 0;
+  while (days.has(dayKey(d))) {
+    n++;
+    d = addDays(d, -1);
+  }
+  return n;
+}
+
+export function longestStreak(st: AppState) {
+  const days = [...activeDays(st)].sort();
+  let best = 0;
+  let run = 0;
+  let prev: Date | null = null;
+  for (const k of days) {
+    const d = parseDay(k);
+    if (prev && dayKey(addDays(prev, 1)) === k) run++;
+    else run = 1;
+    best = Math.max(best, run);
+    prev = d;
+  }
+  return best;
+}
+
+/** 7 hari minggu ini (Senin–Minggu) */
+export function weekGrid(st: AppState) {
+  const days = activeDays(st);
+  const train = trainingDays(st);
+  const start = weekStart();
+  const today = dayKey();
+  return ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => {
+    const k = dayKey(addDays(start, i));
+    return { label, key: k, done: days.has(k), trained: train.has(k), rest: days.has(k) && !train.has(k), today: k === today };
+  });
+}
+
+// ---------- Atribut ----------
+export const ATTRS: Attr[] = ['STR', 'AGI', 'END', 'VIT', 'DIS'];
+export const ATTR_LABEL: Record<Attr, string> = {
+  STR: 'Strength',
+  AGI: 'Agility',
+  END: 'Endurance',
+  VIT: 'Vitality',
+  DIS: 'Discipline',
+};
+
+function attrPoints(st: AppState, sessions: Session[], restDays: string[]) {
+  const p: Record<Attr, number> = { STR: 0, AGI: 0, END: 0, VIT: 0, DIS: 0 };
+  for (const s of sessions) {
+    for (const x of s.sets) {
+      p[x.attr] += 1;
+      if (x.rir === 0) p.DIS += 0.5;
+    }
+    p.DIS += 3;
+    p.VIT += 1;
+  }
+  p.VIT += restDays.length * 0.5;
+  return p;
+}
+
+export function attributes(st: AppState) {
+  const now = new Date();
+  const weekAgo = addDays(now, -7).toISOString();
+  const all = attrPoints(st, st.sessions, st.restDays);
+  const old = attrPoints(
+    st,
+    st.sessions.filter((s) => s.startedAt < weekAgo),
+    st.restDays.filter((d) => d < dayKey(addDays(now, -7))),
+  );
+  const val = (pts: number) => 5 + Math.floor(pts / 4);
+  return ATTRS.map((a) => ({ attr: a, value: val(all[a]), delta: val(all[a]) - val(old[a]) }));
+}
+
+// ---------- PR ----------
+export const e1rm = (load: number, reps: number) => (reps <= 1 ? load : load * (1 + reps / 30));
+
+export interface PR {
+  name: string;
+  loadKg: number;
+  reps: number;
+  e1rm: number;
+  date: string;
+}
+
+export function personalRecords(sessions: Session[]): PR[] {
+  const map = new Map<string, PR>();
+  for (const s of sessions) {
+    for (const x of s.sets) {
+      if (x.loadKg <= 0) continue;
+      const key = x.exerciseName.trim().toLowerCase();
+      const cur = map.get(key);
+      const score = e1rm(x.loadKg, x.reps);
+      if (!cur || score > cur.e1rm) map.set(key, { name: x.exerciseName, loadKg: x.loadKg, reps: x.reps, e1rm: score, date: x.at });
+    }
+  }
+  return [...map.values()].sort((a, b) => b.e1rm - a.e1rm);
+}
+
+/** Jumlah PR baru yang terjadi sejak `sinceIso` */
+export function prsBrokenSince(sessions: Session[], sinceIso: string) {
+  const before = personalRecords(sessions.filter((s) => s.startedAt < sinceIso));
+  const now = personalRecords(sessions);
+  const old = new Map(before.map((p) => [p.name.toLowerCase(), p.e1rm]));
+  return now.filter((p) => p.date >= sinceIso && p.e1rm > (old.get(p.name.toLowerCase()) ?? 0)).length;
+}
+
+// ---------- Quest ----------
+export type QuestType = 'DAILY' | 'WEEKLY' | 'EPIC';
+type Metric = (st: AppState, sessions: Session[], period: { from: string }) => number;
+
+export interface QuestDef {
+  id: string;
+  title: string;
+  desc: string;
+  rank: Rank;
+  type: QuestType;
+  target: number;
+  unit: string;
+  xp: number;
+  coins: number;
+  titleReward?: string;
+  metric: Metric;
+}
+
+const daySessions = (sessions: Session[], from: string) => sessions.filter((s) => s.startedAt >= from);
+
+export const QUESTS: QuestDef[] = [
+  { id: 'd-enter', title: 'Daily Dungeon', desc: 'Selesaikan satu sesi latihan hari ini. Sistem menunggu.', rank: 'E', type: 'DAILY', target: 1, unit: 'sesi', xp: 100, coins: 20, metric: (_, ss, p) => daySessions(ss, p.from).length },
+  { id: 'd-sets', title: 'Iron Repetition', desc: 'Selesaikan 15 set dalam satu hari. Jangan lengah.', rank: 'D', type: 'DAILY', target: 15, unit: 'set', xp: 150, coins: 30, metric: (_, ss, p) => daySessions(ss, p.from).reduce((a, s) => a + s.sets.length, 0) },
+  { id: 'd-volume', title: 'Shadow Load', desc: 'Angkat total 5.000 kg volume hari ini.', rank: 'C', type: 'DAILY', target: 5000, unit: 'kg', xp: 250, coins: 50, metric: (_, ss, p) => daySessions(ss, p.from).reduce((a, s) => a + sessionVolume(s), 0) },
+  { id: 'd-failure', title: 'Edge of Failure', desc: 'Selesaikan 3 set dengan RIR 0 hari ini.', rank: 'C', type: 'DAILY', target: 3, unit: 'set', xp: 200, coins: 40, metric: (_, ss, p) => daySessions(ss, p.from).reduce((a, s) => a + s.sets.filter((x) => x.rir === 0).length, 0) },
+  { id: 'd-weigh', title: 'Status Check', desc: 'Catat berat badan hari ini di halaman Growth.', rank: 'E', type: 'DAILY', target: 1, unit: 'log', xp: 50, coins: 10, metric: (st, _, p) => st.weights.filter((w) => w.date >= p.from.slice(0, 10)).length },
+  { id: 'w-three', title: 'Iron Will Awakening', desc: 'Selesaikan 3 sesi latihan sebelum siklus mingguan berakhir.', rank: 'E', type: 'WEEKLY', target: 3, unit: 'sesi', xp: 800, coins: 100, metric: (_, ss, p) => daySessions(ss, p.from).length },
+  { id: 'w-volume', title: 'Mountain Breaker', desc: 'Kumpulkan 20.000 kg volume dalam satu minggu.', rank: 'B', type: 'WEEKLY', target: 20000, unit: 'kg', xp: 1200, coins: 150, metric: (_, ss, p) => daySessions(ss, p.from).reduce((a, s) => a + sessionVolume(s), 0) },
+  { id: 'w-tut', title: 'Time Under Shadow', desc: 'Kumpulkan 30 menit time under tension minggu ini.', rank: 'C', type: 'WEEKLY', target: 30, unit: 'menit', xp: 900, coins: 120, metric: (_, ss, p) => Math.floor(daySessions(ss, p.from).reduce((a, s) => a + sessionTut(s), 0) / 60) },
+  { id: 'e-streak', title: 'Unbroken Chain', desc: 'Pertahankan streak 30 hari. Peringatan: butuh disiplin tinggi.', rank: 'S', type: 'EPIC', target: 30, unit: 'hari', xp: 5000, coins: 500, titleReward: 'void-walker', metric: (st) => longestStreak(st) },
+  { id: 'e-sessions', title: 'Centurion Trial', desc: 'Selesaikan 100 sesi latihan.', rank: 'A', type: 'EPIC', target: 100, unit: 'sesi', xp: 4000, coins: 400, metric: (_, ss) => ss.length },
+  { id: 'e-ton', title: 'Abyssal Ton', desc: 'Angkat 10.000 kg dalam satu sesi.', rank: 'A', type: 'EPIC', target: 10000, unit: 'kg', xp: 3000, coins: 300, metric: (_, ss) => Math.max(0, ...ss.map(sessionVolume)) },
+];
+
+export function questPeriod(q: QuestDef): { key: string; from: string } {
+  const now = new Date();
+  if (q.type === 'DAILY') {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return { key: dayKey(now), from: d.toISOString() };
+  }
+  if (q.type === 'WEEKLY') return { key: weekKey(now), from: weekStart(now).toISOString() };
+  return { key: 'EPIC', from: new Date(0).toISOString() };
+}
+
+export function questStatus(st: AppState, q: QuestDef) {
+  const period = questPeriod(q);
+  const acc = st.quests.find((a) => a.questId === q.id && a.period === period.key);
+  const progress = Math.min(q.target, q.metric(st, st.sessions, period));
+  return {
+    period: period.key,
+    accepted: !!acc,
+    claimed: !!acc?.claimed,
+    progress,
+    done: progress >= q.target,
+  };
+}
+
+// ---------- Gelar (Achievement Hall) ----------
+export type Rarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
+export interface TitleDef {
+  id: string;
+  name: string;
+  rarity: Rarity;
+  desc: string;
+  bonus: string;
+  target: number;
+  progress: (st: AppState) => number;
+}
+
+export const TITLES: TitleDef[] = [
+  { id: 'awakened', name: 'The Awakened', rarity: 'COMMON', desc: 'Selesaikan sesi latihan pertamamu.', bonus: 'DIS +1', target: 1, progress: (st) => st.sessions.length },
+  { id: 'iron-will', name: 'Iron Will', rarity: 'EPIC', desc: 'Angkat total 10.000 kg dalam satu sesi.', bonus: 'STR +5', target: 10000, progress: (st) => Math.max(0, ...st.sessions.map(sessionVolume)) },
+  { id: 'tempo-adept', name: 'Tempo Adept', rarity: 'RARE', desc: 'Kumpulkan 60 menit time under tension.', bonus: 'END +3', target: 60, progress: (st) => Math.floor(st.sessions.reduce((a, s) => a + sessionTut(s), 0) / 60) },
+  { id: 'week-warden', name: 'Week Warden', rarity: 'RARE', desc: 'Capai streak 7 hari.', bonus: 'VIT +3', target: 7, progress: (st) => longestStreak(st) },
+  { id: 'quest-hunter', name: 'Quest Hunter', rarity: 'RARE', desc: 'Klaim hadiah dari 10 quest.', bonus: 'AGI +3', target: 10, progress: (st) => st.quests.filter((q) => q.claimed).length },
+  { id: 'void-walker', name: 'Void Walker', rarity: 'LEGENDARY', desc: 'Pertahankan streak 30 hari tanpa putus.', bonus: 'STR +10 AGI +15', target: 30, progress: (st) => longestStreak(st) },
+  { id: 'night-sovereign', name: 'Night Sovereign', rarity: 'LEGENDARY', desc: 'Selesaikan 50 sesi sebelum jam 06:00 pagi.', bonus: 'DIS +20', target: 50, progress: (st) => st.sessions.filter((s) => new Date(s.startedAt).getHours() < 6).length },
+];
+
+export const titleUnlocked = (st: AppState, t: TitleDef) => t.progress(st) >= t.target;
+export const titleById = (id: string | null) => TITLES.find((t) => t.id === id);
+
+// ---------- Kristal ----------
+export interface CrystalDef {
+  id: string;
+  attr: Attr;
+  label: string;
+  color: string;
+  threshold: number;
+}
+export const CRYSTALS: CrystalDef[] = [
+  { id: 'c-str', attr: 'STR', label: 'Strength Crystal', color: '#8B5CF6', threshold: 15 },
+  { id: 'c-end', attr: 'END', label: 'Endurance Crystal', color: '#34D399', threshold: 12 },
+  { id: 'c-dis', attr: 'DIS', label: 'Discipline Crystal', color: '#F87171', threshold: 15 },
+  { id: 'c-agi', attr: 'AGI', label: 'Agility Crystal', color: '#60A5FA', threshold: 12 },
+  { id: 'c-vit', attr: 'VIT', label: 'Vitality Crystal', color: '#FBBF24', threshold: 12 },
+  { id: 'c-s', attr: 'STR', label: 'Sovereign Crystal', color: '#C4B5FD', threshold: 50 },
+];
+
+// ---------- Workout hari ini ----------
+export function nextWorkout(st: AppState) {
+  if (st.workouts.length === 0) return null;
+  const last = [...st.sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+  if (!last) return st.workouts[0];
+  const idx = st.workouts.findIndex((w) => w.id === last.workoutId);
+  return st.workouts[(idx + 1) % st.workouts.length] ?? st.workouts[0];
+}

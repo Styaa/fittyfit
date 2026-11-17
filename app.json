@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "Shadow Fit",
+    "slug": "fittyfit",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "shadowfit",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "bundleIdentifier": "com.styaa.fittyfit"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0812",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.styaa.fittyfit"
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "name": "Shadow Fit",
+      "themeColor": "#0A0812",
+      "backgroundColor": "#0A0812"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0A0812",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Shadow Fit membutuhkan akses foto untuk progress log.",
+          "cameraPermission": "Shadow Fit membutuhkan kamera untuk foto progres."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "backgroundColor": "#0A0812"
+  }
+}
