@@ -1,5 +1,6 @@
-package expo.modules.shadowlock
 @file:Suppress("UNUSED_VARIABLE", "DEPRECATION")
+
+package expo.modules.shadowlock
 
 import android.content.Context
 import android.content.Intent
