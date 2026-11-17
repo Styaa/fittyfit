@@ -3,9 +3,11 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar, Body, Button, Card, Chip, Icon, IconButton, Label, Mono, ProgressBar, Screen, Sheet, Tag, TopBar } from '@/components/ui';
+import { PenaltyCard, RestPassControl, SystemNotice } from '@/components/penalty';
 import { ExerciseGuideSheet, InfoCard, rxLine, TECH_LABEL, WeekBanner } from '@/components/program';
 import { dayKey } from '@/store/dates';
 import { DAY_NAMES, DAY_SHORT, fmtBig, isoDay, programWeek, QUESTS, questStatus, QuestType, readyToProgress, todayPlan, workoutForWeek } from '@/store/logic';
+import { passesUsedThisMonth, REST_PASS_MONTHLY_LIMIT, REST_PASS_PRICE } from '@/store/penalty';
 import { REST_DAY_TIPS, WARMUP } from '@/store/program8';
 import { useStore } from '@/store/store';
 import type { ExerciseTemplate, Workout } from '@/store/types';
@@ -92,6 +94,8 @@ function TodayDungeon() {
     const rested = state.restDays.includes(dayKey());
     return (
       <View style={{ marginTop: 20, gap: 14 }}>
+        <SystemNotice />
+        <PenaltyCard />
         <WeekBanner />
         <Card tone="success" style={{ alignItems: 'center' }}>
           <Icon name="sleep" size={40} color={C.success} />
@@ -136,6 +140,12 @@ function TodayDungeon() {
 
   return (
     <View style={{ marginTop: 20 }}>
+      {state.notice || state.penalty ? (
+        <View style={{ gap: 10, marginBottom: 14 }}>
+          <SystemNotice />
+          <PenaltyCard />
+        </View>
+      ) : null}
       <WeekBanner />
       <View style={{ alignItems: 'center', marginTop: 20 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -215,7 +225,10 @@ function TodayDungeon() {
           <Button label="Latihan lagi" variant="ghost" size="sm" onPress={start} style={{ marginTop: 12, alignSelf: 'stretch' }} />
         </Card>
       ) : (
-        <Button label={state.active ? 'Resume Dungeon' : 'Enter Dungeon'} icon="sword-cross" size="lg" pill onPress={start} style={{ marginTop: 24 }} />
+        <>
+          <Button label={state.active ? 'Resume Dungeon' : 'Enter Dungeon'} icon="sword-cross" size="lg" pill onPress={start} style={{ marginTop: 24 }} />
+          {!state.active && isScheduled && <RestPassControl compact />}
+        </>
       )}
 
       {picker}
@@ -239,6 +252,29 @@ function QuestBoard() {
           <Mono color={C.gold}>{state.coins}</Mono>
         </View>
       </View>
+      <Card style={{ marginTop: 6, marginBottom: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={styles.shopIcon}>
+            <Icon name="ticket-outline" size={24} color={C.gold} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.shopTitle}>REST PASS</Text>
+            <Body size={12}>Izin 1 hari latihan tanpa penalti. Maks {REST_PASS_MONTHLY_LIMIT}× per bulan.</Body>
+            <Mono size={12} color={C.textDim} style={{ marginTop: 4 }}>
+              Dimiliki: {state.restPasses ?? 0} · bulan ini {passesUsedThisMonth(state)}/{REST_PASS_MONTHLY_LIMIT}
+            </Mono>
+          </View>
+        </View>
+        <Button
+          label={state.coins >= REST_PASS_PRICE ? `Beli · ${REST_PASS_PRICE} koin` : `Butuh ${REST_PASS_PRICE - state.coins} koin lagi`}
+          icon="cart-outline"
+          variant={state.coins >= REST_PASS_PRICE ? 'secondary' : 'ghost'}
+          size="sm"
+          disabled={state.coins < REST_PASS_PRICE}
+          onPress={actions.buyRestPass}
+          style={{ marginTop: 12 }}
+        />
+      </Card>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 10 }}>
         {(['ALL', 'DAILY', 'WEEKLY', 'EPIC'] as const).map((f) => (
           <Chip key={f} label={f === 'ALL' ? 'All Quests' : f} active={filter === f} onPress={() => setFilter(f)} />
@@ -324,6 +360,8 @@ const styles = StyleSheet.create({
   segItem: { flex: 1, height: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   segActive: { backgroundColor: C.lavender },
   segText: { fontFamily: F.title, fontSize: 12, letterSpacing: 1.4, color: C.textMuted },
+  shopIcon: { width: 46, height: 46, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(251,191,36,0.4)', backgroundColor: 'rgba(251,191,36,0.08)', alignItems: 'center', justifyContent: 'center' },
+  shopTitle: { fontFamily: F.headline, color: C.gold, fontSize: 16, letterSpacing: 1 },
   sys: { fontFamily: F.mono, color: C.success, fontSize: 14, letterSpacing: 1.5 },
   questTitle: { fontFamily: F.display, color: '#ece6ff', fontSize: 32, lineHeight: 38, textAlign: 'center', marginTop: 10, marginBottom: 8 },
   exIcon: { width: 42, height: 42, borderRadius: 10, borderWidth: 1, borderColor: '#3a3448', backgroundColor: '#1b1726', alignItems: 'center', justifyContent: 'center' },

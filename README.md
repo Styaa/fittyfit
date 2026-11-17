@@ -51,6 +51,33 @@ Setiap gerakan punya **animasi vektor** yang diputar sesuai tempo program (fase 
 
 Definisi pose ada di `src/anim/moves.ts`. Untuk membuat ulang GIF: `npm run gifs` (butuh Python + Pillow).
 
+## Notifikasi System & Penalty Quest
+
+**Notifikasi** (lokal di HP, tanpa server; jam mengikuti zona waktu HP):
+
+| Jam | Isi | Muncul jika |
+|---|---|---|
+| 07.30 | Briefing harian (dungeon hari ini, fase minggu baru tiap Senin, penalti aktif) | setiap hari |
+| 08.00 Minggu | Timbang badan & foto progres | hari Minggu |
+| 12.00 & 20.00 | Penalty Quest belum selesai | ada penalti aktif |
+| 18.45 | Dungeon dibuka dalam 15 menit | belum latihan |
+| 20.30 | Dungeon belum dimasuki | belum latihan |
+| 21.30 | Streak terancam / reward quest belum diklaim | belum latihan / ada reward |
+| 19.00 Sabtu | Progres quest mingguan | ada quest mingguan belum selesai |
+| real-time | Rest timer selesai | saat istirahat antar set |
+
+Pengingat hari itu otomatis batal setelah kamu latihan atau memakai Rest Pass. Setiap jenis bisa dimatikan di **System → Notifikasi System**. Notifikasi hanya berjalan di aplikasi HP (Android/iOS), tidak di browser.
+
+**Penalty Quest:**
+- Hari latihan terjadwal (Senin–Sabtu) terlewat tanpa sesi → besoknya muncul Penalty Quest (dicek saat aplikasi dibuka). Hari Minggu tidak pernah dipenalti.
+- Isi: latihan bodyweight ±10 menit sesuai dungeon yang terlewat (Push/Pull/Leg), 2 ronde (minggu 1–2), 3 ronde (minggu 3–7), 1 ronde (deload).
+- Selesai sebelum 23:59 → streak dipulihkan. Gagal → streak dihapus + debuff **WEAKENED** (XP −25% untuk 2 sesi berikutnya).
+- Tidak menumpuk: bolos beberapa hari tetap 1 penalty quest.
+
+**Rest Pass:** izin 1 hari latihan tanpa penalti. Dibeli di Quest Board seharga 300 koin, maksimal dipakai 2× per bulan.
+
+**Streak:** hari latihan, hari istirahat terjadwal (Minggu), hari Rest Pass, dan hari yang penaltinya dibersihkan semuanya menjaga streak.
+
 ## Menjalankan di HP (paling mudah)
 
 1. Pasang **Expo Go** dari Play Store / App Store.

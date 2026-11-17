@@ -87,6 +87,8 @@ export interface Session {
   endedAt?: string;
   sets: SetLog[];
   xp: number;
+  /** XP dipotong debuff Weakened */
+  debuffed?: boolean;
 }
 
 export interface WeightEntry {
@@ -106,10 +108,43 @@ export interface QuestAccept {
   claimed: boolean;
 }
 
+export interface NotifSettings {
+  enabled: boolean;
+  briefing: boolean; // 07.30
+  workout: boolean; // 18.45 & 20.30
+  streak: boolean; // 21.30 streak/penalti/reward
+  weekly: boolean; // Sabtu 19.00
+  weighIn: boolean; // Minggu 08.00
+  restTimer: boolean;
+  penalty: boolean;
+}
+
 export interface Settings {
   unit: Unit;
   haptics: boolean;
   tempoCue: boolean;
+  notif: NotifSettings;
+}
+
+export type PenaltyFocus = 'push' | 'pull' | 'leg' | 'mixed';
+
+export interface Penalty {
+  id: string;
+  /** hari latihan yang terlewat */
+  missedDates: string[];
+  workoutName: string;
+  focus: PenaltyFocus;
+  rounds: number;
+  roundsDone: number;
+  /** hari penalti harus diselesaikan (batas 23:59) */
+  activeDate: string;
+  status: 'active' | 'cleared';
+}
+
+export interface SystemNotice {
+  kind: 'penalty-new' | 'penalty-failed' | 'penalty-cleared';
+  text: string;
+  date: string;
 }
 
 export interface AppState {
@@ -127,4 +162,15 @@ export interface AppState {
   equippedTitle: string | null;
   settings: Settings;
   program: ProgramInfo | null;
+  penalty: Penalty | null;
+  /** hari terlewat yang "dibersihkan" lewat penalty quest (streak tetap jalan) */
+  clearedDays: string[];
+  /** hari izin memakai Rest Pass */
+  passDays: string[];
+  restPasses: number;
+  /** sisa sesi dengan debuff Weakened (XP −25%) */
+  debuffSessions: number;
+  /** hari terakhir yang sudah dievaluasi untuk penalti */
+  lastCheckDay: string | null;
+  notice: SystemNotice | null;
 }

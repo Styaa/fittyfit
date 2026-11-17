@@ -57,17 +57,42 @@ export function rankFor(level: number): Rank {
 }
 
 // ---------- Streak ----------
-export function activeDays(st: AppState): Set<string> {
-  const set = new Set<string>(st.restDays);
-  st.sessions.forEach((s) => set.add(dayKey(s.startedAt)));
-  return set;
-}
 export function trainingDays(st: AppState): Set<string> {
   return new Set(st.sessions.map((s) => dayKey(s.startedAt)));
 }
 
-export function currentStreak(st: AppState) {
-  const days = activeDays(st);
+/** Hari pertama yang dihitung untuk streak */
+function streakStart(st: AppState) {
+  const first = st.sessions.reduce((m, s) => (dayKey(s.startedAt) < m ? dayKey(s.startedAt) : m), st.profile ? dayKey(st.profile.createdAt) : dayKey());
+  return first;
+}
+
+/** Hari istirahat terjadwal (mis. Minggu di program 6 hari) */
+export const isScheduledRest = (st: AppState, day: string) => hasSchedule(st) && !workoutForDay(st, isoDay(parseDay(day)));
+
+/**
+ * Hari aktif untuk streak: latihan, recovery, Rest Pass, penalti dibersihkan,
+ * atau hari istirahat terjadwal. `threatened` = anggap hari yang sedang dipenalti masih aman.
+ */
+export function activeDays(st: AppState, threatened = false): Set<string> {
+  const set = new Set<string>([...st.restDays, ...(st.clearedDays ?? []), ...(st.passDays ?? [])]);
+  st.sessions.forEach((s) => set.add(dayKey(s.startedAt)));
+  if (threatened && st.penalty?.status === 'active') st.penalty.missedDates.forEach((d) => set.add(d));
+  if (hasSchedule(st)) {
+    const start = streakStart(st);
+    const today = dayKey();
+    let d = parseDay(start);
+    while (dayKey(d) <= today) {
+      const k = dayKey(d);
+      if (isScheduledRest(st, k)) set.add(k);
+      d = addDays(d, 1);
+    }
+  }
+  return set;
+}
+
+export function currentStreak(st: AppState, threatened = false) {
+  const days = activeDays(st, threatened);
   let d = new Date();
   // Hari ini belum latihan tidak memutus streak
   if (!days.has(dayKey(d))) d = addDays(d, -1);
@@ -76,20 +101,28 @@ export function currentStreak(st: AppState) {
     n++;
     d = addDays(d, -1);
   }
-  return n;
+  // streak yang hanya berisi hari istirahat tidak dihitung
+  const hasEffort =
+    trainingDays(st).size > 0 || (st.clearedDays ?? []).length > 0 || (threatened && st.penalty?.status === 'active' && st.penalty.missedDates.length > 0);
+  return hasEffort ? n : 0;
 }
 
+/** Streak sedang terancam penalty quest? */
+export const streakThreatened = (st: AppState) => st.penalty?.status === 'active';
+
 export function longestStreak(st: AppState) {
-  const days = [...activeDays(st)].sort();
+  const days = activeDays(st);
+  if (trainingDays(st).size === 0) return 0;
   let best = 0;
   let run = 0;
-  let prev: Date | null = null;
-  for (const k of days) {
-    const d = parseDay(k);
-    if (prev && dayKey(addDays(prev, 1)) === k) run++;
-    else run = 1;
-    best = Math.max(best, run);
-    prev = d;
+  let d = parseDay(streakStart(st));
+  const today = dayKey();
+  while (dayKey(d) <= today) {
+    if (days.has(dayKey(d))) {
+      run++;
+      best = Math.max(best, run);
+    } else run = 0;
+    d = addDays(d, 1);
   }
   return best;
 }
@@ -102,7 +135,25 @@ export function weekGrid(st: AppState) {
   const today = dayKey();
   return ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => {
     const k = dayKey(addDays(start, i));
-    return { label, key: k, done: days.has(k), trained: train.has(k), rest: days.has(k) && !train.has(k), today: k === today };
+    const trained = train.has(k);
+    const pass = (st.passDays ?? []).includes(k);
+    const cleared = (st.clearedDays ?? []).includes(k);
+    const penalized = st.penalty?.status === 'active' && st.penalty.missedDates.includes(k);
+    const plannedRest = isScheduledRest(st, k);
+    const missed = !days.has(k) && k < today && !plannedRest;
+    return {
+      label,
+      key: k,
+      done: days.has(k),
+      trained,
+      pass,
+      cleared,
+      penalized,
+      plannedRest,
+      missed,
+      rest: days.has(k) && !trained && !pass && !cleared,
+      today: k === today,
+    };
   });
 }
 

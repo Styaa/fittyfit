@@ -7,7 +7,8 @@ import { Alert, Platform, Pressable, Share, StyleSheet, Switch, Text, TextInput,
 import { Avatar, Body, Button, Card, Field, Icon, IconName, Label, Mono, Screen, Sheet, TopBar } from '@/components/ui';
 import { fmtBig, levelInfo, sessionVolume, totalXp } from '@/store/logic';
 import { useStore } from '@/store/store';
-import type { AppState } from '@/store/types';
+import { notificationsSupported, sendTestNotification } from '@/notify/notify';
+import type { AppState, NotifSettings } from '@/store/types';
 import { C, F } from '@/theme';
 
 function ask(title: string, msg: string, onOk: () => void) {
@@ -21,6 +22,16 @@ function ask(title: string, msg: string, onOk: () => void) {
     { text: 'Ya', style: 'destructive', onPress: onOk },
   ]);
 }
+
+const NOTIF_ROWS: { key: Exclude<keyof NotifSettings, 'enabled'>; icon: IconName; label: string; time: string }[] = [
+  { key: 'briefing', icon: 'weather-sunset-up', label: 'Briefing harian', time: '07.30' },
+  { key: 'workout', icon: 'sword-cross', label: 'Pengingat dungeon', time: '18.45 · 20.30' },
+  { key: 'streak', icon: 'fire-alert', label: 'Streak terancam / reward', time: '21.30' },
+  { key: 'penalty', icon: 'alert-octagon-outline', label: 'Penalty quest', time: '12.00 · 20.00' },
+  { key: 'weekly', icon: 'calendar-week', label: 'Quest mingguan', time: 'Sab 19.00' },
+  { key: 'weighIn', icon: 'scale-bathroom', label: 'Timbang & foto', time: 'Min 08.00' },
+  { key: 'restTimer', icon: 'timer-outline', label: 'Rest timer selesai', time: 'real-time' },
+];
 
 function Row({ icon, label, value, onPress, right }: { icon: IconName; label: string; value?: string; onPress?: () => void; right?: React.ReactNode }) {
   return (
@@ -42,6 +53,8 @@ export default function SystemScreen() {
   const [importErr, setImportErr] = useState('');
   const [form, setForm] = useState({ name: p.name, height: String(p.heightCm), age: String(p.age) });
   const lv = levelInfo(totalXp(state));
+  const nf = state.settings.notif;
+  const [testMsg, setTestMsg] = useState('');
   const totalVol = state.sessions.reduce((a, s) => a + sessionVolume(s), 0);
 
   const pickAvatar = async () => {
@@ -143,6 +156,45 @@ export default function SystemScreen() {
           right={<Switch value={state.settings.tempoCue} onValueChange={(v) => actions.patchSettings({ tempoCue: v })} trackColor={{ true: C.primary, false: '#3a3448' }} thumbColor="#fff" />}
         />
       </Card>
+
+      <Label style={{ marginTop: 28, marginBottom: 10 }}>Notifikasi System</Label>
+      <Card style={{ padding: 0 }} light={false}>
+        <Row
+          icon="bell-ring-outline"
+          label="Aktifkan notifikasi"
+          right={<Switch value={nf.enabled} onValueChange={(v) => actions.patchNotif({ enabled: v })} trackColor={{ true: C.primary, false: '#3a3448' }} thumbColor="#fff" />}
+        />
+        {NOTIF_ROWS.map((r) => (
+          <Row
+            key={r.key}
+            icon={r.icon}
+            label={r.label}
+            value={r.time}
+            right={
+              <Switch
+                disabled={!nf.enabled}
+                value={nf.enabled && nf[r.key]}
+                onValueChange={(v) => actions.patchNotif({ [r.key]: v })}
+                trackColor={{ true: C.primary, false: '#3a3448' }}
+                thumbColor="#fff"
+              />
+            }
+          />
+        ))}
+        <Row
+          icon="bell-check-outline"
+          label="Kirim tes notifikasi"
+          value={testMsg}
+          onPress={async () => {
+            if (!notificationsSupported) return setTestMsg('khusus HP');
+            const ok = await sendTestNotification();
+            setTestMsg(ok ? 'terkirim (3 dtk)' : 'izin ditolak');
+          }}
+        />
+      </Card>
+      <Body size={12} style={{ marginTop: 8, color: C.textFaint }}>
+        Jam mengikuti zona waktu HP. Pengingat otomatis batal setelah kamu latihan. Notifikasi hanya berjalan di aplikasi HP (Android/iOS), bukan di browser.
+      </Body>
 
       <Label style={{ marginTop: 28, marginBottom: 10 }}>Data (tersimpan lokal)</Label>
       <Card style={{ padding: 0 }} light={false}>

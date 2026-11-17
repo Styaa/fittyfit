@@ -25,6 +25,18 @@ export function initialState(): AppState {
     bonusXp: 0,
     coins: 0,
     equippedTitle: null,
-    settings: { unit: 'kg', haptics: true, tempoCue: false },
+    settings: {
+      unit: 'kg',
+      haptics: true,
+      tempoCue: false,
+      notif: { enabled: true, briefing: true, workout: true, streak: true, weekly: true, weighIn: true, restTimer: true, penalty: true },
+    },
+    penalty: null,
+    clearedDays: [],
+    passDays: [],
+    restPasses: 0,
+    debuffSessions: 0,
+    lastCheckDay: null,
+    notice: null,
   };
 }

@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 
 import { dayKey, parseDay } from './dates';
 import { initialState, newProgramInfo, uid } from './defaults';
+import { DEBUFF_FACTOR, evaluateDaily, REST_PASS_PRICE, restPassBlock } from './penalty';
 import { programWorkouts } from './program8';
 import { computeSessionXp, QUESTS, questStatus } from './logic';
 import type { AppState, Profile, SetLog, Settings, Workout } from './types';
@@ -50,8 +51,14 @@ function makeActions(update: (fn: Updater) => void) {
         if (s.active.sets.length === 0) return { ...s, active: null };
         const done = { ...s.active, endedAt: new Date().toISOString() };
         done.xp = computeSessionXp(done);
+        let debuffSessions = s.debuffSessions ?? 0;
+        if (debuffSessions > 0) {
+          done.xp = Math.round(done.xp * DEBUFF_FACTOR);
+          done.debuffed = true;
+          debuffSessions -= 1;
+        }
         gained = done.xp;
-        return { ...s, active: null, sessions: [...s.sessions, done] };
+        return { ...s, active: null, sessions: [...s.sessions, done], debuffSessions };
       });
       return gained;
     },
@@ -124,7 +131,42 @@ function makeActions(update: (fn: Updater) => void) {
         return { ...s, program: { ...s.program, startDate: dayKey(d) } };
       }),
 
-    importState: (data: AppState) => update(() => ({ ...initialState(), ...data })),
+    /** evaluasi harian penalti (aman dipanggil berkali-kali) */
+    evaluate: () => update((s) => evaluateDaily(s)),
+    dismissNotice: () => update((s) => ({ ...s, notice: null })),
+    penaltyRoundDone: () =>
+      update((s) => {
+        const p = s.penalty;
+        if (!p || p.status !== 'active') return s;
+        const roundsDone = p.roundsDone + 1;
+        if (roundsDone < p.rounds) return { ...s, penalty: { ...p, roundsDone } };
+        return {
+          ...s,
+          penalty: { ...p, roundsDone, status: 'cleared' },
+          clearedDays: [...new Set([...(s.clearedDays ?? []), ...p.missedDates])],
+          notice: { kind: 'penalty-cleared', date: dayKey(), text: 'Penalty Quest selesai. Streak dipulihkan. Kembali ke jalur, Hunter.' },
+        };
+      }),
+    penaltyRoundUndo: () =>
+      update((s) => (s.penalty && s.penalty.status === 'active' && s.penalty.roundsDone > 0 ? { ...s, penalty: { ...s.penalty, roundsDone: s.penalty.roundsDone - 1 } } : s)),
+    buyRestPass: () =>
+      update((s) => (s.coins >= REST_PASS_PRICE ? { ...s, coins: s.coins - REST_PASS_PRICE, restPasses: (s.restPasses ?? 0) + 1 } : s)),
+    useRestPass: () => {
+      let err: string | null = null;
+      update((s) => {
+        err = restPassBlock(s);
+        if (err) return s;
+        return { ...s, restPasses: s.restPasses - 1, passDays: [...s.passDays, dayKey()] };
+      });
+      return err;
+    },
+    patchNotif: (p: Partial<Settings['notif']>) => update((s) => ({ ...s, settings: { ...s.settings, notif: { ...s.settings.notif, ...p } } })),
+
+    importState: (data: AppState) =>
+      update(() => {
+        const init = initialState();
+        return { ...init, ...data, settings: { ...init.settings, ...data.settings, notif: { ...init.settings.notif, ...(data.settings?.notif ?? {}) } } };
+      }),
     resetAll: () => update(() => initialState()),
   };
 }
@@ -140,7 +182,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .then((raw) => {
         if (raw) {
           const parsed = JSON.parse(raw) as AppState;
-          const merged = { ...initialState(), ...parsed, settings: { ...initialState().settings, ...parsed.settings } };
+          const init = initialState();
+          const merged: AppState = {
+            ...init,
+            ...parsed,
+            settings: { ...init.settings, ...parsed.settings, notif: { ...init.settings.notif, ...(parsed.settings?.notif ?? {}) } },
+          };
           stateRef.current = merged;
           setState(merged);
         }

@@ -766,5 +766,42 @@ export const MOVES: Record<string, Move> = {
   },
 };
 
+// ===== Gerakan bodyweight untuk Penalty Quest =====
+MOVES['push-up'] = {
+  view: 'side', anchor: 'toeN', db: 'none', bend: { a: 1 },
+  frames: [
+    { t: 66, a: [176, 176], l: [246, 246, 170] },
+    { t: 80, a: 'ik', l: [260, 260, 170] },
+  ],
+};
+MOVES['bodyweight squat'] = {
+  view: 'side', db: 'none',
+  frames: [
+    { t: 4, a: [178, 176], l: [180, 180] },
+    { t: 32, a: [92, 90], l: [96, 200] },
+  ],
+};
+MOVES['bodyweight reverse lunge'] = {
+  view: 'side', db: 'none',
+  frames: [
+    { t: 2, a: [150, 40], l: [178, 182], lf: [182, 180] },
+    { t: 6, a: [150, 40], l: [100, 188], lf: [200, 262, 175] },
+  ],
+};
+MOVES['glute bridge'] = {
+  view: 'side', anchor: 'shoulder', db: 'none', bend: { l: -1 },
+  frames: [
+    { t: 250, a: [100, 95], l: [72, 170, 70] },
+    { t: 270, a: [100, 95], l: 'ik' },
+  ],
+};
+MOVES['reverse snow angel'] = {
+  view: 'top', db: 'none',
+  frames: [
+    { a: [12, 10], l: [180, 180] },
+    { a: [176, 176], l: [180, 180] },
+  ],
+};
+
 export const moveKey = (name: string) => name.trim().toLowerCase();
 export const getMove = (name: string): Move | undefined => MOVES[moveKey(name)];

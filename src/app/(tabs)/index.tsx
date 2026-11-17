@@ -5,11 +5,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Radar } from '@/components/charts';
 import { Avatar, Body, Button, Card, Icon, IconButton, IconName, Label, Mono, ProgressBar, Screen, Stat, TopBar } from '@/components/ui';
 import { dayKey } from '@/store/dates';
+import { DebuffTag, PenaltyCard, RestPassControl, SystemNotice } from '@/components/penalty';
 import { WeekBanner } from '@/components/program';
-import { ATTR_LABEL, attributes, currentStreak, DAY_NAMES, isoDay, levelInfo, rankFor, titleById, todayPlan, totalXp, weekGrid } from '@/store/logic';
+import { isTrainingDay } from '@/store/penalty';
+import { ATTR_LABEL, attributes, currentStreak, DAY_NAMES, hasSchedule, isoDay, levelInfo, rankFor, titleById, todayPlan, totalXp, weekGrid } from '@/store/logic';
 import { useStore } from '@/store/store';
 import type { Attr } from '@/store/types';
-import { C, F, glow, RANK_COLOR } from '@/theme';
+import { C, F, glow, hexA, RANK_COLOR } from '@/theme';
 
 const ATTR_ICON: Record<Attr, IconName> = {
   STR: 'dumbbell',
@@ -26,7 +28,8 @@ export default function StatusScreen() {
   const lv = levelInfo(xp);
   const rank = rankFor(lv.level);
   const attrs = attributes(state);
-  const streak = currentStreak(state);
+  const threatened = state.penalty?.status === 'active';
+  const streak = currentStreak(state, threatened);
   const week = weekGrid(state);
   const plan = todayPlan(state);
   const next = plan.kind === 'workout' && !plan.done ? plan.workout : null;
@@ -51,6 +54,13 @@ export default function StatusScreen() {
           right={<IconButton name="chart-line" onPress={() => router.push('/growth')} />}
         />
       }>
+      {state.notice || state.penalty ? (
+        <View style={{ gap: 10, marginBottom: 16 }}>
+          <SystemNotice />
+          <PenaltyCard />
+        </View>
+      ) : null}
+
       {/* Kartu profil */}
       <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
         <Avatar uri={p.avatarUri} name={p.name} size={84} />
@@ -99,9 +109,15 @@ export default function StatusScreen() {
       {/* Streak */}
       <Card style={{ marginTop: 24 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Icon name="fire" color={C.gold} size={26} />
-          <Text style={styles.streak}>{streak} DAY STREAK</Text>
+          <Icon name={threatened ? 'fire-alert' : 'fire'} color={threatened ? C.danger : C.gold} size={26} />
+          <Text style={[styles.streak, threatened && { color: C.danger }]}>{streak} DAY STREAK</Text>
+          {threatened && (
+            <View style={styles.threat}>
+              <Text style={styles.threatText}>TERANCAM</Text>
+            </View>
+          )}
         </View>
+        <DebuffTag />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 18 }}>
           {week.map((d) => (
             <View key={d.key} style={{ alignItems: 'center', gap: 8 }}>
@@ -109,15 +125,30 @@ export default function StatusScreen() {
                 style={[
                   styles.dayBox,
                   d.done && { backgroundColor: '#3a3150', borderColor: C.borderStrong },
+                  d.plannedRest && !d.trained && { backgroundColor: '#1a1724', borderColor: '#2a2535', borderStyle: 'dashed' },
+                  (d.missed || d.penalized) && { borderColor: hexA(C.danger, 0.6), backgroundColor: '#24111a' },
                   d.today && { borderColor: C.lavender, ...glow(C.primary, 10, 0.5) },
                 ]}>
-                {d.trained ? <Icon name="check" size={18} color={C.lavender} /> : d.rest ? <Icon name="sleep" size={16} color={C.textDim} /> : null}
+                {d.trained ? (
+                  <Icon name="check" size={18} color={C.lavender} />
+                ) : d.pass ? (
+                  <Icon name="ticket-confirmation-outline" size={16} color={C.gold} />
+                ) : d.cleared ? (
+                  <Icon name="shield-check-outline" size={16} color={C.success} />
+                ) : d.penalized ? (
+                  <Text style={{ color: C.danger, fontFamily: F.monoBold }}>!</Text>
+                ) : d.missed ? (
+                  <Icon name="close" size={16} color={C.danger} />
+                ) : d.plannedRest || d.rest ? (
+                  <Icon name="sleep" size={15} color={C.textDim} />
+                ) : null}
               </View>
               <Text style={[styles.dayLabel, d.today && { color: C.lavender }]}>{d.label}</Text>
             </View>
           ))}
         </View>
-        {!trainedToday && (
+        {!trainedToday && isTrainingDay(state) && <RestPassControl />}
+        {!trainedToday && !hasSchedule(state) && (
           <Pressable onPress={() => actions.toggleRestDay()} style={{ marginTop: 14, alignSelf: 'flex-start' }}>
             <Body size={13} color={restToday ? C.lavender : C.textDim}>
               {restToday ? '✓ Hari ini ditandai sebagai rest day (ketuk untuk batal)' : '+ Tandai hari ini sebagai rest day (streak tetap jalan)'}
@@ -172,6 +203,8 @@ const styles = StyleSheet.create({
   attrSub: { fontFamily: F.body, color: C.textFaint, fontSize: 11 },
   delta: { fontFamily: F.mono, fontSize: 13, width: 28 },
   streak: { fontFamily: F.title, color: C.text, fontSize: 22 },
+  threat: { borderWidth: 1, borderColor: C.danger, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: C.dangerDim },
+  threatText: { fontFamily: F.monoBold, color: C.danger, fontSize: 10, letterSpacing: 1 },
   dayBox: { width: 38, height: 38, borderRadius: 6, borderWidth: 1, borderColor: '#2f2a3d', backgroundColor: '#211d2c', alignItems: 'center', justifyContent: 'center' },
   dayLabel: { fontFamily: F.mono, color: C.textDim, fontSize: 12 },
 });

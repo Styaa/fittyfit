@@ -43,6 +43,12 @@
           "photosPermission": "Shadow Fit membutuhkan akses foto untuk progress log.",
           "cameraPermission": "Shadow Fit membutuhkan kamera untuk foto progres."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#8B5CF6"
+        }
       ]
     ],
     "experiments": {

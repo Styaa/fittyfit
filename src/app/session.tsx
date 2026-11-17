@@ -24,6 +24,7 @@ import {
   toUnit,
   totalXp,
 } from '@/store/logic';
+import { cancelRestDone, scheduleRestDone } from '@/notify/notify';
 import { WARMUP } from '@/store/program8';
 import { useStore } from '@/store/store';
 import type { ExerciseTemplate } from '@/store/types';
@@ -93,7 +94,7 @@ export default function SessionScreen() {
   const [phase, setPhase] = useState<Phase>('overview');
   const [exId, setExId] = useState<string | null>(null);
   const [restEnd, setRestEnd] = useState(0);
-  const [summary, setSummary] = useState<null | { xp: number; volume: number; sets: number; minutes: number; prs: string[]; levelUp: boolean; level: number }>(null);
+  const [summary, setSummary] = useState<null | SummaryData>(null);
 
   const haptic = (kind: 'light' | 'heavy' | 'success') => {
     if (!state.settings.haptics || Platform.OS === 'web') return;
@@ -123,11 +124,13 @@ export default function SessionScreen() {
     const after = personalRecords([...state.sessions, active]);
     const oldMap = new Map(before.map((p) => [p.name.toLowerCase(), p.e1rm]));
     const prs = after.filter((p) => p.e1rm > (oldMap.get(p.name.toLowerCase()) ?? 0) && active.sets.some((s) => s.at === p.date)).map((p) => p.name);
-    const xp = computeSessionXp(active);
+    const debuffed = (state.debuffSessions ?? 0) > 0;
+    const xp = actions.finishSession();
     const lvBefore = levelInfo(xpBefore).level;
     const lvAfter = levelInfo(xpBefore + xp).level;
     setSummary({
       xp,
+      debuffed,
       volume: sessionVolume(active),
       sets: active.sets.length,
       minutes: Math.round((Date.now() - new Date(active.startedAt).getTime()) / 60000),
@@ -135,7 +138,7 @@ export default function SessionScreen() {
       levelUp: lvAfter > lvBefore,
       level: lvAfter,
     });
-    actions.finishSession();
+    cancelRestDone();
     haptic('success');
     setPhase('summary');
   };
@@ -573,6 +576,12 @@ function RestScreen({
   const left = Math.max(0, (restEnd - now) / 1000);
   const done = left <= 0;
   const fired = useRef(false);
+  // notifikasi saat rest habis (berguna saat HP terkunci / di aplikasi lain)
+  useEffect(() => {
+    scheduleRestDone(restEnd, e.name, setIndex, state.settings.notif.enabled && state.settings.notif.restTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restEnd]);
+  useEffect(() => () => void cancelRestDone(), []);
   useEffect(() => {
     if (done && !fired.current) {
       fired.current = true;
@@ -651,7 +660,18 @@ function RestScreen({
 }
 
 // ================= SUMMARY =================
-function Summary({ data }: { data: { xp: number; volume: number; sets: number; minutes: number; prs: string[]; levelUp: boolean; level: number } }) {
+interface SummaryData {
+  xp: number;
+  debuffed: boolean;
+  volume: number;
+  sets: number;
+  minutes: number;
+  prs: string[];
+  levelUp: boolean;
+  level: number;
+}
+
+function Summary({ data }: { data: SummaryData }) {
   return (
     <Screen padBottom={40}>
       <View style={{ alignItems: 'center', marginTop: 40 }}>
@@ -661,6 +681,9 @@ function Summary({ data }: { data: { xp: number; volume: number; sets: number; m
           <Icon name="diamond-stone" color={C.success} size={26} />
           <Text style={styles.xpText}>+{data.xp} XP</Text>
         </View>
+        {data.debuffed && (
+          <Text style={{ fontFamily: F.mono, color: C.danger, fontSize: 12, marginTop: 10 }}>WEAKENED: XP −25% diterapkan</Text>
+        )}
       </View>
       <View style={{ flexDirection: 'row', gap: 12, marginTop: 32 }}>
         {[
