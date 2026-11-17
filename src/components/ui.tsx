@@ -2,8 +2,11 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleProp,
@@ -70,13 +73,25 @@ export function Screen({
       <Backdrop />
       <View style={{ paddingTop: insets.top }}>{header}</View>
       {scroll ? (
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={[{ paddingHorizontal: S.margin, paddingTop: S.md, paddingBottom: padBottom + insets.bottom }, contentStyle]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.maxW}>{children}</View>
-        </ScrollView>
+        Platform.OS === 'web' ? (
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={[{ paddingHorizontal: S.margin, paddingTop: S.md, paddingBottom: padBottom + insets.bottom }, contentStyle]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled">
+            <View style={styles.maxW}>{children}</View>
+          </ScrollView>
+        ) : (
+          // otomatis menggulir kolom yang sedang diisi ke atas keyboard (aman untuk mode edge-to-edge Android)
+          <KeyboardAwareScrollView
+            style={{ flex: 1 }}
+            bottomOffset={24}
+            contentContainerStyle={[{ paddingHorizontal: S.margin, paddingTop: S.md, paddingBottom: padBottom + insets.bottom }, contentStyle]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled">
+            <View style={styles.maxW}>{children}</View>
+          </KeyboardAwareScrollView>
+        )
       ) : (
         <View style={[{ flex: 1, paddingHorizontal: S.margin, paddingBottom: insets.bottom + S.md }, contentStyle]}>
           <View style={[styles.maxW, { flex: 1 }]}>{children}</View>
@@ -409,6 +424,7 @@ export function Sheet({ visible, onClose, title, children }: { visible: boolean;
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'web' ? undefined : 'padding'}>
       <Pressable style={styles.sheetBackdrop} onPress={onClose} />
       <View style={[styles.sheet, { paddingBottom: insets.bottom + S.lg }]}>
         <View style={styles.maxW}>
@@ -420,6 +436,7 @@ export function Sheet({ visible, onClose, title, children }: { visible: boolean;
           {children}
         </View>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

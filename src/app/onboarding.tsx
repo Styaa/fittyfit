@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Polygon } from 'react-native-svg';
 
 import { Body, Button, Card, Display, Divider, Field, H1, Icon, Screen, Tag } from '@/components/ui';
@@ -44,7 +44,7 @@ export default function Onboarding() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <>
       <Screen padBottom={40}>
         <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 12 }}>
           <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.lavender }} />
@@ -90,7 +90,7 @@ export default function Onboarding() {
           </View>
         ) : null}
       </Screen>
-    </KeyboardAvoidingView>
+    </>
   );
 }
 

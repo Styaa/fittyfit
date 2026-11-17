@@ -8,6 +8,7 @@ import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
 import { AppState as RNAppState, View } from 'react-native';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { setLockConfig } from '@modules/shadow-lock';
@@ -118,12 +119,14 @@ function Gate() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
+      <KeyboardProvider>
       <ThemeProvider value={theme}>
         <StoreProvider>
           <StatusBar style="light" />
           <Gate />
         </StoreProvider>
       </ThemeProvider>
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }
