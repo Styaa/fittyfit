@@ -7,6 +7,7 @@ import { useStore } from '@/store/store';
 import type { ExerciseTemplate } from '@/store/types';
 import { C, F, hexA } from '@/theme';
 
+import { MoveDemo } from './move-demo';
 import { Body, Card, Icon, Label, Mono, Sheet, Tag } from './ui';
 
 export const TECH_LABEL = { onePointFive: '1.5 REPS', myo: 'MYO-REPS', drop: 'DROP SET' } as const;
@@ -71,7 +72,10 @@ export function ExerciseGuideSheet({ exercise, onClose }: { exercise: ExerciseTe
   return (
     <Sheet visible={!!e} onClose={onClose} title={e?.name ?? ''}>
       {e && (
-        <ScrollView style={{ maxHeight: 520 }}>
+        <ScrollView style={{ maxHeight: 560 }}>
+          <View style={{ marginBottom: 12 }}>
+            <MoveDemo name={e.name} tempo={e.tempo} height={180} />
+          </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {e.muscles.map((m) => (
               <Tag key={m} label={m} color={C.lavender} />

@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Ring } from '@/components/charts';
+import { hasDemo, MoveDemo } from '@/components/move-demo';
 import { ExerciseGuideSheet, InfoCard, rxLine, TECH_LABEL, WeekBanner } from '@/components/program';
 import { Body, Button, Card, Icon, IconButton, Label, Mono, ProgressBar, Screen, Sheet, Stepper, Tag, TopBar } from '@/components/ui';
 import { fmtClock } from '@/store/dates';
@@ -612,9 +613,9 @@ function RestScreen({
 
   return (
     <Screen
-      scroll={false}
+      padBottom={30}
       header={<TopBar left={<IconButton name="chevron-left" onPress={onBack} />} title={`Active Quest: ${workoutName}`} />}>
-      <View style={{ alignItems: 'center', marginTop: 48 }}>
+      <View style={{ alignItems: 'center', marginTop: 16 }}>
         <View>
           <Text style={[styles.restClock, done && { color: C.success }]}>{fmtClock(Math.ceil(left))}</Text>
         </View>
@@ -628,7 +629,7 @@ function RestScreen({
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 14, marginTop: 40 }}>
+      <View style={{ flexDirection: 'row', gap: 14, marginTop: 24 }}>
         <View style={styles.miniCard}>
           <Label color={C.textMuted}>Current set</Label>
           <Text style={styles.miniVal}>
@@ -647,6 +648,11 @@ function RestScreen({
 
       <Card style={{ marginTop: 20 }}>
         <Text style={[styles.exName, { marginBottom: 6 }]}>{e.name.toUpperCase()}</Text>
+        {hasDemo(e.name) ? (
+          <View style={{ marginBottom: 12 }}>
+            <MoveDemo name={e.name} tempo={e.tempo} height={130} />
+          </View>
+        ) : null}
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Icon name="dumbbell" color={C.lavender} size={30} />
           <Text style={styles.loadLabel}>LOAD</Text>
@@ -665,8 +671,7 @@ function RestScreen({
         </View>
       </Card>
 
-      <View style={{ flex: 1 }} />
-      <Button label={done ? `Start Set ${setIndex}` : 'Start Set Now'} icon="check" size="lg" onPress={onStart} style={{ height: 64 }} />
+      <Button label={done ? `Start Set ${setIndex}` : 'Start Set Now'} icon="check" size="lg" onPress={onStart} style={{ height: 64, marginTop: 20 }} />
     </Screen>
   );
 }
@@ -767,7 +772,7 @@ const styles = StyleSheet.create({
   pauseBtn: { width: 84, height: 64, borderRadius: 14, borderWidth: 1.5, borderColor: C.lavender, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surface },
   rirBtn: { flex: 1, height: 48, borderRadius: 8, borderWidth: 1, borderColor: C.borderMuted, alignItems: 'center', justifyContent: 'center' },
   rirText: { fontFamily: F.monoBold, fontSize: 18, color: C.textMuted },
-  restClock: { fontFamily: F.title, color: C.lavenderSoft, fontSize: 110, lineHeight: 120, textShadowColor: 'rgba(196,181,253,0.55)', textShadowRadius: 24 },
+  restClock: { fontFamily: F.title, color: C.lavenderSoft, fontSize: 92, lineHeight: 100, textShadowColor: 'rgba(196,181,253,0.55)', textShadowRadius: 24 },
   restLabel: { fontFamily: F.title, color: C.success, fontSize: 15, letterSpacing: 2.2 },
   miniCard: { flex: 1, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, borderRadius: 14, padding: 18, alignItems: 'center' },
   miniVal: { fontFamily: F.monoBold, color: C.lavender, fontSize: 30, marginTop: 6 },

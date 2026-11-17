@@ -43,6 +43,14 @@ Program latihan di rumah dengan dumbbell ringan (5 kg), tanpa bench/barbel/pull-
 
 Minggu program bisa digeser atau diulang di **System → Program & Dungeons**.
 
+### Contoh gerakan (animasi)
+
+Setiap gerakan punya **animasi vektor** yang diputar sesuai tempo program (fase TURUN / JEDA / NAIK):
+- Di aplikasi: ketuk gerakan mana pun → animasi tampil di atas panduan. Animasi juga tampil di layar istirahat untuk set berikutnya. Ketuk untuk pause, tombol 1×/2× untuk kecepatan.
+- Sebagai GIF: lihat galeri di [`docs/gerakan`](docs/gerakan/README.md).
+
+Definisi pose ada di `src/anim/moves.ts`. Untuk membuat ulang GIF: `npm run gifs` (butuh Python + Pillow).
+
 ## Menjalankan di HP (paling mudah)
 
 1. Pasang **Expo Go** dari Play Store / App Store.

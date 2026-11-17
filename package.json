@@ -45,7 +45,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "build:web": "expo export --platform web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "gifs": "node --experimental-strip-types --no-warnings scripts/export-moves.mjs /tmp/moves.json && python3 scripts/render_gifs.py /tmp/moves.json docs/gerakan"
   },
   "private": true
 }
