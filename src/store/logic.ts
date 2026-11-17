@@ -1,5 +1,6 @@
 import { addDays, dayKey, parseDay, weekKey, weekStart } from './dates';
-import type { AppState, Attr, Rank, Session, SetLog, Unit } from './types';
+import { PROGRAM_WEEKS, weekPhase } from './program8';
+import type { AppState, Attr, ExerciseTemplate, Rank, Session, SetLog, Unit, Workout } from './types';
 
 // ---------- Satuan ----------
 export const KG_TO_LBS = 2.20462;
@@ -274,11 +275,116 @@ export const CRYSTALS: CrystalDef[] = [
   { id: 'c-s', attr: 'STR', label: 'Sovereign Crystal', color: '#C4B5FD', threshold: 50 },
 ];
 
-// ---------- Workout hari ini ----------
+// ---------- Program & jadwal otomatis ----------
+export const DAY_NAMES = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+export const DAY_SHORT = ['', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+/** 1 = Senin ... 7 = Minggu */
+export const isoDay = (d: Date = new Date()) => ((d.getDay() + 6) % 7) + 1;
+
+/** Minggu program (1-based, tanpa batas) untuk tanggal tertentu */
+export function programWeekAbs(st: AppState, at: Date = new Date()) {
+  if (!st.program) return null;
+  const start = parseDay(st.program.startDate);
+  const diff = Math.floor((weekStart(at).getTime() - weekStart(start).getTime()) / (7 * 864e5));
+  return Math.max(1, diff + 1);
+}
+
+export interface WeekInfo {
+  /** minggu dalam blok (1..8) */
+  week: number;
+  block: number;
+  abs: number;
+}
+
+export function programWeek(st: AppState, at: Date = new Date()): WeekInfo | null {
+  const abs = programWeekAbs(st, at);
+  if (abs == null) return null;
+  const n = st.program?.weeks ?? PROGRAM_WEEKS;
+  return { week: ((abs - 1) % n) + 1, block: Math.floor((abs - 1) / n) + 1, abs };
+}
+
+export interface Prescription {
+  sets: number;
+  rir: number;
+  rirLabel: string;
+  restSec: number;
+  techniqueActive: boolean;
+  finisher: 'off' | 'optional' | 'on';
+}
+
+/** Resep set/RIR/istirahat untuk minggu tertentu sesuai rencana progresi 8 minggu */
+export function prescribe(e: ExerciseTemplate, week: number | null): Prescription {
+  const base: Prescription = { sets: e.sets, rir: e.rir, rirLabel: e.rirLabel ?? String(e.rir), restSec: e.restSec, techniqueActive: !!e.technique, finisher: 'on' };
+  if (week == null) return base;
+  const hold = e.mode === 'hold';
+  const lessRest = Math.max(30, e.restSec - 10);
+  const kind = e.technique?.kind;
+  if (week <= 2) return { ...base, rir: 2, rirLabel: hold ? '—' : '2', techniqueActive: false, finisher: 'optional' };
+  if (week <= 4) return { ...base, rir: 1, rirLabel: hold ? '—' : '1', restSec: lessRest, techniqueActive: kind === 'onePointFive' };
+  if (week <= 6) return { ...base, restSec: lessRest, techniqueActive: !!kind };
+  if (week === 7) return { ...base, rir: 0, rirLabel: hold ? '—' : '0 (set terakhir)', restSec: lessRest, techniqueActive: !!kind };
+  return { ...base, sets: Math.max(1, Math.round(e.sets * 0.6)), rir: 3, rirLabel: hold ? '—' : '3–4', techniqueActive: false, finisher: 'off' };
+}
+
+/** Exercise dengan sets/RIR/istirahat sudah disesuaikan minggu ini */
+export function applyWeek(e: ExerciseTemplate, week: number | null): ExerciseTemplate & { rx: Prescription } {
+  const rx = prescribe(e, week);
+  return { ...e, sets: rx.sets, rir: rx.rir, rirLabel: rx.rirLabel, restSec: rx.restSec, rx };
+}
+
+export function workoutForWeek(w: Workout, week: number | null) {
+  return { ...w, exercises: w.exercises.map((e) => applyWeek(e, week)) };
+}
+
+export const hasSchedule = (st: AppState) => st.workouts.some((w) => w.day);
+export const workoutForDay = (st: AppState, day: number) => st.workouts.find((w) => w.day === day) ?? null;
+
+export type TodayPlan =
+  | { kind: 'workout'; workout: Workout; done: boolean }
+  | { kind: 'rest'; tomorrow: Workout | null };
+
+/** Rencana hari ini: jadwal per hari jika ada, kalau tidak rotasi */
+export function todayPlan(st: AppState, at: Date = new Date()): TodayPlan {
+  const today = dayKey(at);
+  const doneToday = st.sessions.some((s) => dayKey(s.startedAt) === today);
+  if (hasSchedule(st)) {
+    const w = workoutForDay(st, isoDay(at));
+    if (!w) {
+      const next = [1, 2, 3, 4, 5, 6, 7].map((k) => workoutForDay(st, ((isoDay(at) - 1 + k) % 7) + 1)).find(Boolean) ?? null;
+      return { kind: 'rest', tomorrow: next };
+    }
+    return { kind: 'workout', workout: w, done: st.sessions.some((s) => dayKey(s.startedAt) === today && s.workoutId === w.id) };
+  }
+  if (st.workouts.length === 0) return { kind: 'rest', tomorrow: null };
+  const sorted = [...st.sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  const last = sorted[0];
+  if (doneToday && last) {
+    const w = st.workouts.find((x) => x.id === last.workoutId);
+    if (w) return { kind: 'workout', workout: w, done: true };
+  }
+  const idx = last ? st.workouts.findIndex((w) => w.id === last.workoutId) : -1;
+  return { kind: 'workout', workout: st.workouts[(idx + 1) % st.workouts.length] ?? st.workouts[0], done: false };
+}
+
+/** Kompatibilitas: dungeon yang disarankan (null di hari istirahat) */
 export function nextWorkout(st: AppState) {
-  if (st.workouts.length === 0) return null;
-  const last = [...st.sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
-  if (!last) return st.workouts[0];
-  const idx = st.workouts.findIndex((w) => w.id === last.workoutId);
-  return st.workouts[(idx + 1) % st.workouts.length] ?? st.workouts[0];
+  const p = todayPlan(st);
+  return p.kind === 'workout' ? p.workout : null;
+}
+
+export { weekPhase };
+
+/**
+ * Siap naik level: dua sesi terakhir berturut-turut mencapai batas atas reps di semua set
+ * dengan sisa ≥1 rep (RIR ≥ 1).
+ */
+export function readyToProgress(sessions: Session[], e: ExerciseTemplate) {
+  const key = e.name.trim().toLowerCase();
+  const recent = [...sessions]
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .map((s) => s.sets.filter((x) => x.exerciseName.trim().toLowerCase() === key))
+    .filter((sets) => sets.length > 0)
+    .slice(0, 2);
+  if (recent.length < 2) return false;
+  return recent.every((sets) => sets.length >= Math.min(e.sets, 3) && sets.every((x) => x.reps >= e.repMax && x.rir >= 1));
 }

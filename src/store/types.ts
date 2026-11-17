@@ -25,6 +25,27 @@ export interface ExerciseTemplate {
   attr: Attr;
   /** beban default (kg) */
   load: number;
+  /** label RIR dari program, mis. "0–1" */
+  rirLabel?: string;
+  /** repetisi/set dihitung per sisi (unilateral) */
+  perSide?: boolean;
+  /** reps = repetisi biasa, amrap = sebanyak mungkin, hold = tahan (repMin–repMax dalam detik) */
+  mode?: 'reps' | 'amrap' | 'hold';
+  technique?: Technique;
+  guide?: ExerciseGuide;
+}
+
+export type TechniqueKind = 'onePointFive' | 'myo' | 'drop';
+export interface Technique {
+  kind: TechniqueKind;
+  note: string;
+}
+
+export interface ExerciseGuide {
+  how: string;
+  mistakes: string;
+  easier: string;
+  harder: string;
 }
 
 export interface Workout {
@@ -32,6 +53,18 @@ export interface Workout {
   name: string;
   subtitle: string;
   exercises: ExerciseTemplate[];
+  /** hari jadwal: 1 = Senin ... 7 = Minggu */
+  day?: number;
+  focus?: 'upper' | 'lower';
+  finisher?: string;
+  cooldown?: string;
+}
+
+export interface ProgramInfo {
+  name: string;
+  /** Senin minggu pertama (YYYY-MM-DD) */
+  startDate: string;
+  weeks: number;
 }
 
 export interface SetLog {
@@ -93,4 +126,5 @@ export interface AppState {
   coins: number;
   equippedTitle: string | null;
   settings: Settings;
+  program: ProgramInfo | null;
 }

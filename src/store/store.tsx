@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import { dayKey } from './dates';
-import { initialState, uid } from './defaults';
+import { dayKey, parseDay } from './dates';
+import { initialState, newProgramInfo, uid } from './defaults';
+import { programWorkouts } from './program8';
 import { computeSessionXp, QUESTS, questStatus } from './logic';
 import type { AppState, Profile, SetLog, Settings, Workout } from './types';
 
@@ -109,6 +110,18 @@ function makeActions(update: (fn: Updater) => void) {
         const arr = [...s.workouts];
         [arr[i], arr[j]] = [arr[j], arr[i]];
         return { ...s, workouts: arr };
+      }),
+
+    installProgram: () => update((s) => ({ ...s, workouts: programWorkouts(), program: newProgramInfo() })),
+    restartProgram: () => update((s) => ({ ...s, program: newProgramInfo() })),
+    /** geser minggu program: +1 = maju satu minggu */
+    shiftProgramWeek: (delta: number) =>
+      update((s) => {
+        if (!s.program) return s;
+        const d = parseDay(s.program.startDate);
+        d.setDate(d.getDate() - delta * 7);
+        if (d > new Date()) return s;
+        return { ...s, program: { ...s.program, startDate: dayKey(d) } };
       }),
 
     importState: (data: AppState) => update(() => ({ ...initialState(), ...data })),

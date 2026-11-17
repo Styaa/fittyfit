@@ -5,10 +5,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Ring } from '@/components/charts';
+import { ExerciseGuideSheet, InfoCard, rxLine, TECH_LABEL, WeekBanner } from '@/components/program';
 import { Body, Button, Card, Icon, IconButton, Label, Mono, ProgressBar, Screen, Sheet, Stepper, Tag, TopBar } from '@/components/ui';
 import { fmtClock } from '@/store/dates';
 import {
+  applyWeek,
   computeSessionXp,
+  programWeek,
+  workoutForWeek,
   fmtBig,
   fmtLoad,
   fromUnit,
@@ -21,6 +25,7 @@ import {
   toUnit,
   totalXp,
 } from '@/store/logic';
+import { WARMUP } from '@/store/program8';
 import { useStore } from '@/store/store';
 import type { ExerciseTemplate } from '@/store/types';
 import { C, F, glow, hexA } from '@/theme';
@@ -28,6 +33,21 @@ import { C, F, glow, hexA } from '@/theme';
 function goHome() {
   if (router.canGoBack()) router.back();
   else router.replace('/');
+}
+
+type WkEx = ReturnType<typeof applyWeek>;
+
+/** Workout aktif dengan resep minggu saat sesi dimulai */
+function useSessionWorkout() {
+  const { state } = useStore();
+  const active = state.active;
+  const base = state.workouts.find((w) => w.id === active?.workoutId);
+  return useMemo(() => {
+    if (!base || !active) return { workout: undefined, week: null as number | null };
+    const week = programWeek(state, new Date(active.startedAt))?.week ?? null;
+    return { workout: workoutForWeek(base, week), week };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, active?.startedAt, state.program]);
 }
 
 type Phase = 'overview' | 'set' | 'rest' | 'summary';
@@ -70,7 +90,7 @@ export default function SessionScreen() {
   useSafeKeepAwake();
   const { state, actions } = useStore();
   const active = state.active;
-  const workout = state.workouts.find((w) => w.id === active?.workoutId);
+  const { workout } = useSessionWorkout();
   const [phase, setPhase] = useState<Phase>('overview');
   const [exId, setExId] = useState<string | null>(null);
   const [restEnd, setRestEnd] = useState(0);
@@ -190,7 +210,10 @@ export default function SessionScreen() {
 function Overview({ onPick, onFinish }: { onPick: (id: string) => void; onFinish: () => void }) {
   const { state, actions } = useStore();
   const active = state.active!;
-  const workout = state.workouts.find((w) => w.id === active.workoutId)!;
+  const { workout: wk, week } = useSessionWorkout();
+  const workout = wk!;
+  const [guide, setGuide] = useState<WkEx | null>(null);
+  const finisherMode = workout.exercises[0]?.rx.finisher ?? 'on';
   const now = useNow(true, 1000);
   const elapsed = (now - new Date(active.startedAt).getTime()) / 1000;
   const unit = state.settings.unit;
@@ -218,7 +241,16 @@ function Overview({ onPick, onFinish }: { onPick: (id: string) => void; onFinish
         </View>
       </View>
 
-      <View style={{ gap: 14, marginTop: 28 }}>
+      {week != null && (
+        <View style={{ marginTop: 24 }}>
+          <WeekBanner />
+        </View>
+      )}
+      <View style={{ marginTop: 12 }}>
+        <InfoCard icon="run" title="Pemanasan 5–8 menit" lines={WARMUP[workout.focus ?? 'upper']} />
+      </View>
+
+      <View style={{ gap: 14, marginTop: 14 }}>
         {workout.exercises.map((e) => {
           const sets = active.sets.filter((s) => s.exerciseId === e.id);
           const done = sets.length;
@@ -233,10 +265,14 @@ function Overview({ onPick, onFinish }: { onPick: (id: string) => void; onFinish
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.exName, complete && { color: C.success }]}>{e.name.toUpperCase()}</Text>
                   <Mono size={13} style={{ marginTop: 4, letterSpacing: 1 }} color={complete ? C.success : C.textDim}>
-                    {complete ? `COMPLETED · ${done} SETS` : `${e.sets} SETS · ${e.repMin}-${e.repMax} REPS${e.tempo ? ' · ' + e.tempo : ''}`}
+                    {complete ? `COMPLETED · ${done} SETS` : rxLine(e)}
                   </Mono>
+                  {!complete && e.technique && e.rx.techniqueActive && <Tag label={TECH_LABEL[e.technique.kind]} color={C.danger} style={{ marginTop: 8 }} />}
                 </View>
-                <Tag label={`${Math.round(pct * 100)}%`} color={complete ? C.success : C.lavender} />
+                <View style={{ alignItems: 'flex-end', gap: 8 }}>
+                  <Tag label={`${Math.round(pct * 100)}%`} color={complete ? C.success : C.lavender} />
+                  <IconButton name="information-outline" size={20} color={C.textFaint} onPress={() => setGuide(e)} />
+                </View>
               </View>
               {!complete && (
                 <>
@@ -261,7 +297,21 @@ function Overview({ onPick, onFinish }: { onPick: (id: string) => void; onFinish
         })}
       </View>
 
+      <View style={{ gap: 10, marginTop: 14 }}>
+        {workout.finisher ? (
+          <InfoCard
+            icon="fire"
+            title="Finisher"
+            lines={[workout.finisher]}
+            muted={finisherMode === 'off'}
+            tag={finisherMode === 'off' ? 'SKIP (DELOAD)' : finisherMode === 'optional' ? 'OPSIONAL' : 'WAJIB'}
+          />
+        ) : null}
+        {workout.cooldown ? <InfoCard icon="yoga" title="Pendinginan 5 menit" lines={[workout.cooldown]} /> : null}
+      </View>
+
       <Button label="Complete Dungeon" icon="flag-checkered" size="lg" onPress={onFinish} style={{ marginTop: 28 }} />
+      <ExerciseGuideSheet exercise={guide} onClose={() => setGuide(null)} />
       <Body center size={13} style={{ marginTop: 10, color: C.textDim }}>
         Ketuk latihan untuk memulai set berikutnya.
       </Body>
@@ -277,7 +327,7 @@ function SetScreen({
   onLogged,
   haptic,
 }: {
-  exercise: ExerciseTemplate;
+  exercise: WkEx;
   setIndex: number;
   onClose: () => void;
   onLogged: () => void;
@@ -296,6 +346,10 @@ function SetScreen({
   const pausedTotal = useRef(0);
   const [logOpen, setLogOpen] = useState(false);
   const now = useNow(!paused && !logOpen, 100);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const hold = e.mode === 'hold';
+  const lastSet = setIndex >= e.sets;
+  const techNow = lastSet && e.technique && e.rx.techniqueActive ? e.technique : null;
 
   // set sebelumnya untuk beban default
   const prev = [...(state.active?.sets ?? [])].reverse().find((s) => s.exerciseId === e.id);
@@ -360,7 +414,8 @@ function SetScreen({
       pausedAt.current = Date.now();
       setPaused(true);
     }
-    if (tempo && repsDone > 0) setReps(repsDone);
+    if (hold && elapsed > 0) setReps(Math.round(elapsed));
+    else if (tempo && repsDone > 0) setReps(repsDone);
     setCountdownEnd(0);
     setLogOpen(true);
   };
@@ -381,7 +436,14 @@ function SetScreen({
     onLogged();
   };
 
-  const ringProgress = !running ? 1 - Math.max(0, countdownEnd - now) / 3000 : tempo ? phaseProgress : (elapsed % 60) / 60;
+  const ringProgress = !running
+    ? 1 - Math.max(0, countdownEnd - now) / 3000
+    : hold
+      ? Math.min(1, elapsed / e.repMax)
+      : tempo
+        ? phaseProgress
+        : (elapsed % 60) / 60;
+  const holdReached = hold && elapsed >= e.repMin;
 
   return (
     <Screen
@@ -390,10 +452,14 @@ function SetScreen({
         <TopBar
           left={<IconButton name="close" color={C.textMuted} onPress={onClose} />}
           title={
-            <Text numberOfLines={2} adjustsFontSizeToFit style={styles.setTitle}>
-              {e.name.toUpperCase()} — SET {setIndex}/{e.sets}
-            </Text>
+            <View style={{ alignItems: 'center' }}>
+              <Text numberOfLines={2} adjustsFontSizeToFit style={styles.setTitle}>
+                {e.name.toUpperCase()} — SET {setIndex}/{e.sets}
+              </Text>
+              {e.perSide ? <Label color={C.textDim}>Per sisi · kiri & kanan</Label> : null}
+            </View>
           }
+          right={<IconButton name="information-outline" color={C.textDim} onPress={() => setGuideOpen(true)} />}
         />
       }>
       {tempo ? (
@@ -415,8 +481,20 @@ function SetScreen({
           })}
         </View>
       ) : (
-        <View style={{ height: 24 }} />
+        <View style={{ height: 16 }} />
       )}
+
+      {techNow ? (
+        <View style={styles.techBanner}>
+          <Icon name="skull-outline" size={18} color={C.danger} />
+          <View style={{ flex: 1 }}>
+            <Label color={C.danger}>Set terakhir · {TECH_LABEL[techNow.kind]}</Label>
+            <Body size={12} color={C.text}>
+              {techNow.note}
+            </Body>
+          </View>
+        </View>
+      ) : null}
 
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <View>
@@ -432,7 +510,9 @@ function SetScreen({
               <>
                 <Text style={styles.ringClock}>{fmtClock(elapsed)}</Text>
                 <View style={styles.phasePill}>
-                  <Text style={styles.phasePillText}>{paused ? 'PAUSED' : tempo && phaseIdx >= 0 ? PHASE_NAMES[phaseIdx] : 'TIME UNDER TENSION'}</Text>
+                  <Text style={[styles.phasePillText, holdReached && { color: C.success }]}>
+                    {paused ? 'PAUSED' : hold ? (holdReached ? 'TARGET TERCAPAI' : 'TAHAN') : tempo && phaseIdx >= 0 ? PHASE_NAMES[phaseIdx] : 'TIME UNDER TENSION'}
+                  </Text>
                 </View>
               </>
             )}
@@ -444,15 +524,17 @@ function SetScreen({
         <View style={{ flex: 1 }}>
           <Label color={C.textMuted}>Progress</Label>
           <Text style={styles.reps}>
-            REPS {tempo ? repsDone : '—'}/{e.repMax}
+            {hold
+              ? `${Math.floor(elapsed)}/${e.repMin}–${e.repMax}s`
+              : `${e.mode === 'amrap' ? 'AMRAP ' : 'REPS '}${tempo ? repsDone : '—'}/${e.mode === 'amrap' ? `${e.repMin}+` : e.repMax}`}
           </Text>
         </View>
         <View style={{ width: 1, alignSelf: 'stretch', backgroundColor: C.borderMuted, marginHorizontal: 12 }} />
         <View style={{ alignItems: 'flex-end' }}>
           <Label color={C.textMuted}>RIR Target</Label>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
-            <Text style={styles.reps}>{e.rir}</Text>
-            {e.rir <= 1 && <Icon name="skull-outline" color={C.danger} size={26} />}
+            <Text style={styles.reps}>{hold ? '—' : (e.rirLabel ?? e.rir).toString().split(' ')[0]}</Text>
+            {!hold && e.rir <= 1 && <Icon name="skull-outline" color={C.danger} size={26} />}
           </View>
         </View>
       </View>
@@ -466,7 +548,7 @@ function SetScreen({
 
       <Sheet visible={logOpen} onClose={() => setLogOpen(false)} title={`Log Set ${setIndex}`}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Stepper label="Reps" value={reps} onChange={setReps} step={1} />
+          <Stepper label={hold ? 'Detik' : e.perSide ? 'Reps / sisi' : 'Reps'} value={reps} onChange={setReps} step={hold ? 5 : 1} />
           <Stepper label={`Load (${unit})`} value={load} onChange={setLoad} step={unit === 'kg' ? 2.5 : 5} decimals={1} />
         </View>
         <Label style={{ marginTop: 18, marginBottom: 10 }}>Reps in reserve (RIR)</Label>
@@ -485,6 +567,7 @@ function SetScreen({
         </Body>
         <Button label="Save Set" icon="check" size="lg" onPress={save} style={{ marginTop: 20 }} />
       </Sheet>
+      <ExerciseGuideSheet exercise={guideOpen ? e : null} onClose={() => setGuideOpen(false)} />
     </Screen>
   );
 }
@@ -557,6 +640,7 @@ function RestScreen({
           <Label color={C.textMuted}>Target reps</Label>
           <Text style={[styles.miniVal, { color: C.text }]}>
             {e.repMin === e.repMax ? e.repMax : `${e.repMin}-${e.repMax}`}
+            <Text style={{ color: C.textFaint, fontSize: 14 }}>{e.mode === 'hold' ? ' dtk' : e.perSide ? ' /sisi' : ''}</Text>
           </Text>
         </View>
       </View>
@@ -648,6 +732,17 @@ const styles = StyleSheet.create({
   exIcon: { width: 50, height: 50, borderRadius: 10, borderWidth: 1, borderColor: '#3a3448', backgroundColor: '#1b1726', alignItems: 'center', justifyContent: 'center' },
   exName: { fontFamily: F.headline, color: C.text, fontSize: 19, letterSpacing: 0.3 },
   setTitle: { fontFamily: F.display, color: C.lavenderSoft, fontSize: 19, textAlign: 'center', letterSpacing: -0.3, textShadowColor: 'rgba(196,181,253,0.5)', textShadowRadius: 10 },
+  techBanner: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: hexA(C.danger, 0.4),
+    backgroundColor: 'rgba(248,113,113,0.07)',
+    borderRadius: 10,
+    padding: 12,
+  },
   phases: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', marginTop: 28 },
   phaseLine: { width: 28, height: 4, borderRadius: 2, backgroundColor: '#2a2535', marginTop: 16, marginHorizontal: -4 },
   phaseDot: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: '#3a3448', backgroundColor: '#211d2c', alignItems: 'center', justifyContent: 'center' },

@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Body, Button, Card, Field, IconButton, Label, Mono, Screen, Sheet, Stepper, TopBar } from '@/components/ui';
 import { uid } from '@/store/defaults';
-import { ATTR_LABEL, ATTRS, fmtLoad, fromUnit, toUnit } from '@/store/logic';
+import { ATTR_LABEL, ATTRS, DAY_SHORT, fmtLoad, fromUnit, toUnit } from '@/store/logic';
 import { useStore } from '@/store/store';
 import type { ExerciseTemplate } from '@/store/types';
 import { C, F } from '@/theme';
@@ -62,6 +62,22 @@ export default function WorkoutEditor() {
       <Card>
         <Field label="Nama dungeon" value={workout.name} onChangeText={(v) => save({ name: v })} mono={false} />
         <Field label="Target otot" value={workout.subtitle} onChangeText={(v) => save({ subtitle: v })} mono={false} />
+        <Label style={{ marginTop: 16, marginBottom: 8 }}>Hari jadwal</Label>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => {
+            const on = (workout.day ?? 0) === d;
+            const taken = d > 0 && state.workouts.some((w) => w.id !== workout.id && w.day === d);
+            return (
+              <Pressable
+                key={d}
+                disabled={taken}
+                onPress={() => save({ day: d === 0 ? undefined : d })}
+                style={[styles.day, on && { borderColor: C.lavender, backgroundColor: C.primaryDim }, taken && { opacity: 0.3 }]}>
+                <Text style={[styles.dayText, on && { color: C.lavender }]}>{d === 0 ? 'Bebas' : DAY_SHORT[d]}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </Card>
 
       <Label style={{ marginTop: 24, marginBottom: 10 }}>Exercises ({workout.exercises.length})</Label>
@@ -72,7 +88,9 @@ export default function WorkoutEditor() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{e.name.toUpperCase()}</Text>
                 <Mono size={12} style={{ marginTop: 4 }}>
-                  {e.sets}×{e.repMin}-{e.repMax} · {e.tempo || 'no tempo'} · {e.restSec}s · {fmtLoad(e.load, unit)}
+                  {e.sets}×{e.repMin}-{e.repMax}
+                  {e.mode === 'hold' ? 's' : ''}
+                  {e.perSide ? '/sisi' : ''} · {e.tempo || 'no tempo'} · {e.restSec}s · {fmtLoad(e.load, unit)}
                   {unit} · {e.attr}
                 </Mono>
               </View>
@@ -129,5 +147,7 @@ const styles = StyleSheet.create({
   name: { fontFamily: F.headline, color: C.text, fontSize: 16 },
   attr: { borderWidth: 1, borderColor: C.borderMuted, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, minWidth: 90 },
   attrText: { fontFamily: F.monoBold, color: C.textMuted, fontSize: 14 },
+  day: { borderWidth: 1, borderColor: C.borderMuted, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
+  dayText: { fontFamily: F.monoBold, color: C.textMuted, fontSize: 12 },
   attrSub: { fontFamily: F.body, color: C.textFaint, fontSize: 11 },
 });

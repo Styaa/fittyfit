@@ -5,7 +5,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Radar } from '@/components/charts';
 import { Avatar, Body, Button, Card, Icon, IconButton, IconName, Label, Mono, ProgressBar, Screen, Stat, TopBar } from '@/components/ui';
 import { dayKey } from '@/store/dates';
-import { ATTR_LABEL, attributes, currentStreak, levelInfo, nextWorkout, rankFor, titleById, totalXp, weekGrid } from '@/store/logic';
+import { WeekBanner } from '@/components/program';
+import { ATTR_LABEL, attributes, currentStreak, DAY_NAMES, isoDay, levelInfo, rankFor, titleById, todayPlan, totalXp, weekGrid } from '@/store/logic';
 import { useStore } from '@/store/store';
 import type { Attr } from '@/store/types';
 import { C, F, glow, RANK_COLOR } from '@/theme';
@@ -27,7 +28,8 @@ export default function StatusScreen() {
   const attrs = attributes(state);
   const streak = currentStreak(state);
   const week = weekGrid(state);
-  const next = nextWorkout(state);
+  const plan = todayPlan(state);
+  const next = plan.kind === 'workout' && !plan.done ? plan.workout : null;
   const title = titleById(state.equippedTitle);
   const today = dayKey();
   const trainedToday = state.sessions.some((s) => dayKey(s.startedAt) === today);
@@ -35,7 +37,7 @@ export default function StatusScreen() {
 
   const enter = () => {
     if (state.active) return router.push('/session');
-    if (!next) return router.push('/program');
+    if (!next) return router.push('/quests');
     actions.startSession(next);
     router.push('/session');
   };
@@ -126,16 +128,22 @@ export default function StatusScreen() {
 
       {/* Dungeon */}
       <View style={{ marginTop: 28 }}>
-        {next && !state.active ? (
-          <Label center style={{ marginBottom: 10 }}>
-            Next dungeon: {next.name} · {next.exercises.length} exercises
-          </Label>
-        ) : null}
+        <WeekBanner compact />
+        <Label center style={{ marginTop: 18, marginBottom: 10 }}>
+          {state.active
+            ? 'Dungeon sedang berjalan'
+            : plan.kind === 'rest'
+              ? `Hari ${DAY_NAMES[isoDay()]}: Rest day${plan.tomorrow ? ` · berikutnya ${plan.tomorrow.name}` : ''}`
+              : plan.done
+                ? `${plan.workout.name} selesai hari ini ✓`
+                : `Hari ${DAY_NAMES[isoDay()]}: ${plan.workout.name} · ${plan.workout.subtitle}`}
+        </Label>
         <Button
           pill
           size="lg"
-          icon={state.active ? 'play' : 'sword-cross'}
-          label={state.active ? 'Resume Dungeon' : 'Enter Dungeon (Train)'}
+          variant={!state.active && !next ? 'secondary' : 'primary'}
+          icon={state.active ? 'play' : next ? 'sword-cross' : 'calendar-check'}
+          label={state.active ? 'Resume Dungeon' : next ? 'Enter Dungeon (Train)' : 'Lihat Rencana Hari Ini'}
           onPress={enter}
         />
       </View>

@@ -15,6 +15,34 @@ Dibangun dengan **Expo (React Native) + Expo Router**, jadi satu kode jalan di *
 | **Growth** | Grafik berat badan, longest streak, total volume, time under tension, PR siklus ini, foto progres |
 | **System** | Edit profil & avatar, satuan kg/lbs, haptics, editor program (dungeon & latihan), export/import backup JSON, reset data |
 
+## Program Hipertrofi 8 Minggu (bawaan)
+
+Program latihan di rumah dengan dumbbell ringan (5 kg), tanpa bench/barbel/pull-up bar, sudah terpasang otomatis:
+
+| Hari | Dungeon |
+|---|---|
+| Senin | Push A — Dada / Bahu / Trisep |
+| Selasa | Pull A — Punggung / Bisep / Bahu Belakang |
+| Rabu | Leg A — Paha / Bokong / Betis / Core |
+| Kamis | Push B |
+| Jumat | Pull B |
+| Sabtu | Leg B |
+| Minggu | Istirahat |
+
+**Menyesuaikan otomatis setiap hari:**
+- Dungeon hari ini dipilih sesuai hari (Minggu = rest day).
+- Minggu program dihitung dari tanggal mulai, dan resep berubah tiap fase:
+  - Minggu 1–2: RIR 2, belum ada teknik intensitas, finisher opsional
+  - Minggu 3–4: RIR 1, 1.5 reps aktif di set terakhir, istirahat −10 detik
+  - Minggu 5–6: RIR sesuai tabel (0–1), myo-reps & mechanical drop set aktif
+  - Minggu 7: RIR 0 di set terakhir, semua teknik aktif
+  - Minggu 8: deload (set ~60%, RIR 3–4, tanpa teknik & finisher)
+- Setiap gerakan punya panduan: cara melakukan, kesalahan umum, alternatif lebih mudah, progresi lebih sulit.
+- Tanda **"Siap naik level"** muncul jika dua sesi berturut-turut mencapai batas atas reps di semua set dengan RIR ≥ 1.
+- Pemanasan, finisher, dan pendinginan tampil di tiap dungeon.
+
+Minggu program bisa digeser atau diulang di **System → Program & Dungeons**.
+
 ## Menjalankan di HP (paling mudah)
 
 1. Pasang **Expo Go** dari Play Store / App Store.
