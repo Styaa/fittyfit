@@ -1,4 +1,5 @@
 package expo.modules.shadowlock
+@file:Suppress("UNUSED_VARIABLE", "DEPRECATION")
 
 import android.content.Context
 import android.content.Intent
@@ -54,7 +55,7 @@ object AllowList {
     fun addResolved(intent: Intent) {
       try {
         pm.queryIntentActivities(intent, 0).forEach { out.add(it.activityInfo.packageName) }
-      } catch (_: Exception) {
+      } catch (e: Exception) {
       }
     }
     addResolved(Intent(Intent.ACTION_DIAL))
@@ -64,18 +65,18 @@ object AllowList {
     addResolved(Intent(Settings.ACTION_SETTINGS))
     try {
       (ctx.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager)?.defaultDialerPackage?.let { out.add(it) }
-    } catch (_: Exception) {
+    } catch (e: Exception) {
     }
     try {
       Telephony.Sms.getDefaultSmsPackage(ctx)?.let { out.add(it) }
-    } catch (_: Exception) {
+    } catch (e: Exception) {
     }
     // keyboard aktif harus tetap bisa muncul (mis. saat mengetik kalimat buka darurat)
     try {
       (ctx.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
         ?.enabledInputMethodList
         ?.forEach { out.add(it.packageName) }
-    } catch (_: Exception) {
+    } catch (e: Exception) {
     }
     return out
   }
@@ -94,7 +95,7 @@ object AllowList {
     return try {
       ctx.startActivity(intent)
       true
-    } catch (_: Exception) {
+    } catch (e: Exception) {
       if (kind == "sms") {
         try {
           val pkg = Telephony.Sms.getDefaultSmsPackage(ctx)
@@ -104,7 +105,7 @@ object AllowList {
             ctx.startActivity(launch)
             return true
           }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
         }
       }
       false

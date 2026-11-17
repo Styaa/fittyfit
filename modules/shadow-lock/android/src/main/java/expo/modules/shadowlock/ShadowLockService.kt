@@ -1,4 +1,5 @@
 package expo.modules.shadowlock
+@file:Suppress("UNUSED_VARIABLE", "DEPRECATION")
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
@@ -24,8 +25,8 @@ class ShadowLockService : AccessibilityService() {
       // pengecekan berkala: lockdown dimulai (22.00) saat pengguna sedang di aplikasi lain
       try {
         val pkg = rootInActiveWindow?.packageName?.toString() ?: lastPackage
-        if (pkg != null) check(pkg)
-      } catch (_: Exception) {
+        if (pkg != null) evaluate(pkg)
+      } catch (e: Exception) {
       }
       handler.postDelayed(this, TICK_MS)
     }
@@ -42,7 +43,7 @@ class ShadowLockService : AccessibilityService() {
     if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
     val pkg = event.packageName?.toString() ?: return
     lastPackage = pkg
-    check(pkg)
+    evaluate(pkg)
   }
 
   private fun refreshAllow(force: Boolean = false) {
@@ -53,7 +54,7 @@ class ShadowLockService : AccessibilityService() {
     }
   }
 
-  private fun check(pkg: String) {
+  private fun evaluate(pkg: String) {
     if (!LockPolicy.isLockedNow(this)) return
     refreshAllow()
     if (allow.contains(pkg)) return
@@ -70,13 +71,13 @@ class ShadowLockService : AccessibilityService() {
     }
     try {
       startActivity(deepLink)
-    } catch (_: Exception) {
+    } catch (e: Exception) {
       try {
         packageManager.getLaunchIntentForPackage(packageName)?.let {
           it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
           startActivity(it)
         }
-      } catch (_: Exception) {
+      } catch (e: Exception) {
       }
     }
   }
