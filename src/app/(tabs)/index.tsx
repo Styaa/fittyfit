@@ -7,6 +7,7 @@ import { Avatar, Body, Button, Card, Icon, IconButton, IconName, Label, Mono, Pr
 import { dayKey } from '@/store/dates';
 import { DebuffTag, PenaltyCard, RestPassControl, SystemNotice } from '@/components/penalty';
 import { WeekBanner } from '@/components/program';
+import { fmtLockTime, lockPendingToday } from '@/store/lock';
 import { isTrainingDay } from '@/store/penalty';
 import { ATTR_LABEL, attributes, currentStreak, DAY_NAMES, hasSchedule, isoDay, levelInfo, rankFor, titleById, todayPlan, totalXp, weekGrid } from '@/store/logic';
 import { useStore } from '@/store/store';
@@ -160,6 +161,12 @@ export default function StatusScreen() {
       {/* Dungeon */}
       <View style={{ marginTop: 28 }}>
         <WeekBanner compact />
+        {lockPendingToday(state) && !state.active ? (
+          <View style={styles.lockHint}>
+            <Icon name="lock-clock" size={16} color={C.danger} />
+            <Text style={styles.lockHintText}>LOCKDOWN {fmtLockTime(state)} JIKA DUNGEON BELUM SELESAI</Text>
+          </View>
+        ) : null}
         <Label center style={{ marginTop: 18, marginBottom: 10 }}>
           {state.active
             ? 'Dungeon sedang berjalan'
@@ -203,6 +210,8 @@ const styles = StyleSheet.create({
   attrSub: { fontFamily: F.body, color: C.textFaint, fontSize: 11 },
   delta: { fontFamily: F.mono, fontSize: 13, width: 28 },
   streak: { fontFamily: F.title, color: C.text, fontSize: 22 },
+  lockHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14 },
+  lockHintText: { fontFamily: F.monoBold, color: C.danger, fontSize: 11, letterSpacing: 0.8 },
   threat: { borderWidth: 1, borderColor: C.danger, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: C.dangerDim },
   threatText: { fontFamily: F.monoBold, color: C.danger, fontSize: 10, letterSpacing: 1 },
   dayBox: { width: 38, height: 38, borderRadius: 6, borderWidth: 1, borderColor: '#2f2a3d', backgroundColor: '#211d2c', alignItems: 'center', justifyContent: 'center' },

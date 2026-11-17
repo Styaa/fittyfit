@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shadow_lock_label">Shadow Fit Lockdown</string>
+  <string name="shadow_lock_description">Mulai jam 22.00 di hari latihan, jika dungeon hari ini belum selesai, Shadow Fit menutup aplikasi lain (kecuali telepon, SMS, alarm, peta, dan pengaturan) sampai quest selesai. Layanan ini hanya membaca nama aplikasi yang sedang dibuka dan tidak membaca isi layar, ketikan, atau data pribadi apa pun.</string>
+</resources>

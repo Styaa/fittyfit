@@ -1,13 +1,16 @@
 import { File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Platform, Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, AppState as RNAppState, Platform, Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { Avatar, Body, Button, Card, Field, Icon, IconName, Label, Mono, Screen, Sheet, TopBar } from '@/components/ui';
 import { fmtBig, levelInfo, sessionVolume, totalXp } from '@/store/logic';
 import { useStore } from '@/store/store';
+import { isServiceEnabled, lockSupported, openAccessibilitySettings, openAppDetails, startLockTest } from '@modules/shadow-lock';
+
 import { notificationsSupported, sendTestNotification } from '@/notify/notify';
+import { fmtLockTime } from '@/store/lock';
 import type { AppState, NotifSettings } from '@/store/types';
 import { C, F } from '@/theme';
 
@@ -54,6 +57,19 @@ export default function SystemScreen() {
   const [form, setForm] = useState({ name: p.name, height: String(p.heightCm), age: String(p.age) });
   const lv = levelInfo(totalXp(state));
   const nf = state.settings.notif;
+  const lk = state.settings.lock;
+  const [serviceOn, setServiceOn] = useState(isServiceEnabled());
+  const [lockSetup, setLockSetup] = useState(false);
+  const [testMsg2, setTestMsg2] = useState('');
+  useEffect(() => {
+    const refresh = () => setServiceOn(isServiceEnabled());
+    const sub = RNAppState.addEventListener('change', (st) => st === 'active' && refresh());
+    const t = setInterval(refresh, 3000);
+    return () => {
+      sub.remove();
+      clearInterval(t);
+    };
+  }, []);
   const [testMsg, setTestMsg] = useState('');
   const totalVol = state.sessions.reduce((a, s) => a + sessionVolume(s), 0);
 
@@ -157,6 +173,47 @@ export default function SystemScreen() {
         />
       </Card>
 
+      <Label style={{ marginTop: 28, marginBottom: 10 }}>Lockdown</Label>
+      <Card style={{ padding: 0 }} light={false}>
+        <Row
+          icon="lock-outline"
+          label="Lockdown aplikasi lain"
+          value={fmtLockTime(state)}
+          right={
+            <Switch
+              value={lk.enabled}
+              onValueChange={(v) => {
+                actions.patchLock({ enabled: v });
+                if (v && lockSupported && !serviceOn) setLockSetup(true);
+              }}
+              trackColor={{ true: C.danger, false: '#3a3448' }}
+              thumbColor="#fff"
+            />
+          }
+        />
+        <Row
+          icon={serviceOn ? 'shield-check-outline' : 'shield-alert-outline'}
+          label="Layanan aksesibilitas"
+          value={!lockSupported ? 'khusus APK' : serviceOn ? 'aktif' : 'belum aktif'}
+          onPress={lockSupported ? () => setLockSetup(true) : undefined}
+        />
+        <Row
+          icon="flask-outline"
+          label="Uji lockdown 1 menit"
+          value={testMsg2}
+          onPress={() => {
+            if (!lockSupported) return setTestMsg2('khusus APK');
+            if (!serviceOn) return setLockSetup(true);
+            startLockTest(60);
+            setTestMsg2('aktif 60 dtk');
+          }}
+        />
+      </Card>
+      <Body size={12} style={{ marginTop: 8, color: C.textFaint }}>
+        Mulai {fmtLockTime(state)} di hari latihan, jika dungeon belum selesai, aplikasi lain ditutup layar lockdown. Telepon, SMS, alarm, peta, dan setelan tetap bisa
+        dibuka. Kunci terbuka setelah latihan, memakai Rest Pass, buka darurat, atau tengah malam.
+      </Body>
+
       <Label style={{ marginTop: 28, marginBottom: 10 }}>Notifikasi System</Label>
       <Card style={{ padding: 0 }} light={false}>
         <Row
@@ -235,6 +292,22 @@ export default function SystemScreen() {
             setEditOpen(false);
           }}
         />
+      </Sheet>
+
+      <Sheet visible={lockSetup} onClose={() => setLockSetup(false)} title="Aktifkan Lockdown">
+        <Body size={14}>Lockdown butuh izin aksesibilitas agar bisa mengetahui aplikasi yang sedang dibuka. Shadow Fit hanya membaca nama aplikasi, tidak membaca isi layar atau ketikan.</Body>
+        <View style={{ gap: 8, marginTop: 14 }}>
+          <Body size={13} color={C.text}>1. Tekan tombol di bawah untuk membuka Setelan Aksesibilitas.</Body>
+          <Body size={13} color={C.text}>2. Pilih “Aplikasi terinstal” / “Downloaded apps” → “Shadow Fit Lockdown” → aktifkan.</Body>
+          <Body size={13} color={C.text}>
+            3. Jika tombolnya abu-abu atau muncul “Setelan terbatas”: buka Info aplikasi → menu ⋮ (kanan atas) → “Izinkan setelan terbatas”, lalu ulangi langkah 1–2.
+          </Body>
+        </View>
+        <Button label="Buka Setelan Aksesibilitas" icon="cog-outline" size="lg" onPress={openAccessibilitySettings} style={{ marginTop: 18 }} />
+        <Button label="Buka Info Aplikasi" icon="information-outline" variant="ghost" onPress={openAppDetails} style={{ marginTop: 10 }} />
+        <Body size={12} center style={{ marginTop: 12, color: serviceOn ? C.success : C.textDim }}>
+          Status layanan: {serviceOn ? 'AKTIF ✓' : 'belum aktif'}
+        </Body>
       </Sheet>
 
       <Sheet visible={importOpen} onClose={() => setImportOpen(false)} title="Import Backup">

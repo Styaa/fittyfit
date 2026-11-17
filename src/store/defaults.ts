@@ -30,6 +30,7 @@ export function initialState(): AppState {
       haptics: true,
       tempoCue: false,
       notif: { enabled: true, briefing: true, workout: true, streak: true, weekly: true, weighIn: true, restTimer: true, penalty: true },
+      lock: { enabled: false, hour: 22, minute: 0 },
     },
     penalty: null,
     clearedDays: [],
@@ -38,5 +39,6 @@ export function initialState(): AppState {
     debuffSessions: 0,
     lastCheckDay: null,
     notice: null,
+    emergencyUnlocks: [],
   };
 }

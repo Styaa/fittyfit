@@ -160,12 +160,20 @@ function makeActions(update: (fn: Updater) => void) {
       });
       return err;
     },
+    patchLock: (p: Partial<Settings['lock']>) => update((s) => ({ ...s, settings: { ...s.settings, lock: { ...s.settings.lock, ...p } } })),
+    /** buka darurat: lockdown hari ini dibuka (penalti besok tetap berlaku) */
+    emergencyUnlock: () =>
+      update((s) => (s.emergencyUnlocks.includes(dayKey()) ? s : { ...s, emergencyUnlocks: [...s.emergencyUnlocks, dayKey()].slice(-30) })),
     patchNotif: (p: Partial<Settings['notif']>) => update((s) => ({ ...s, settings: { ...s.settings, notif: { ...s.settings.notif, ...p } } })),
 
     importState: (data: AppState) =>
       update(() => {
         const init = initialState();
-        return { ...init, ...data, settings: { ...init.settings, ...data.settings, notif: { ...init.settings.notif, ...(data.settings?.notif ?? {}) } } };
+        return {
+          ...init,
+          ...data,
+          settings: { ...init.settings, ...data.settings, notif: { ...init.settings.notif, ...(data.settings?.notif ?? {}) }, lock: { ...init.settings.lock, ...(data.settings?.lock ?? {}) } },
+        };
       }),
     resetAll: () => update(() => initialState()),
   };
@@ -186,7 +194,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const merged: AppState = {
             ...init,
             ...parsed,
-            settings: { ...init.settings, ...parsed.settings, notif: { ...init.settings.notif, ...(parsed.settings?.notif ?? {}) } },
+            settings: {
+              ...init.settings,
+              ...parsed.settings,
+              notif: { ...init.settings.notif, ...(parsed.settings?.notif ?? {}) },
+              lock: { ...init.settings.lock, ...(parsed.settings?.lock ?? {}) },
+            },
           };
           stateRef.current = merged;
           setState(merged);

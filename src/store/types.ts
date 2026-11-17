@@ -119,11 +119,18 @@ export interface NotifSettings {
   penalty: boolean;
 }
 
+export interface LockSettings {
+  enabled: boolean;
+  hour: number;
+  minute: number;
+}
+
 export interface Settings {
   unit: Unit;
   haptics: boolean;
   tempoCue: boolean;
   notif: NotifSettings;
+  lock: LockSettings;
 }
 
 export type PenaltyFocus = 'push' | 'pull' | 'leg' | 'mixed';
@@ -173,4 +180,6 @@ export interface AppState {
   /** hari terakhir yang sudah dievaluasi untuk penalti */
   lastCheckDay: string | null;
   notice: SystemNotice | null;
+  /** tanggal saat lockdown dibuka lewat buka darurat */
+  emergencyUnlocks: string[];
 }

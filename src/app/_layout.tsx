@@ -10,8 +10,11 @@ import { useEffect, useRef } from 'react';
 import { AppState as RNAppState, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { setLockConfig } from '@modules/shadow-lock';
+
 import { configureNotifications, syncNotifications } from '@/notify/notify';
 import { dayKey } from '@/store/dates';
+import { lockDays, unlockedDates } from '@/store/lock';
 import { StoreProvider, useStore } from '@/store/store';
 import { C } from '@/theme';
 
@@ -38,6 +41,25 @@ function Daemon() {
     };
   }, [actions]);
 
+  // konfigurasi lockdown → modul native (langsung, tanpa jeda, agar kunci segera terbuka setelah latihan)
+  const lockSig = JSON.stringify([
+    !!state.profile && state.settings.lock.enabled,
+    state.settings.lock.hour,
+    state.settings.lock.minute,
+    lockDays(state),
+    unlockedDates(state),
+  ]);
+  useEffect(() => {
+    const st = ref.current;
+    setLockConfig({
+      enabled: !!st.profile && st.settings.lock.enabled,
+      hour: st.settings.lock.hour,
+      minute: st.settings.lock.minute,
+      days: lockDays(st),
+      unlocked: unlockedDates(st),
+    });
+  }, [lockSig]);
+
   const signature = JSON.stringify([
     !!state.profile,
     state.sessions.length,
@@ -45,6 +67,8 @@ function Daemon() {
     state.passDays,
     state.quests,
     state.settings.notif,
+    state.settings.lock,
+    state.emergencyUnlocks,
     state.workouts.map((w) => [w.id, w.day, w.name, w.subtitle]),
     state.program,
     dayKey(),
@@ -85,6 +109,7 @@ function Gate() {
         <Stack.Screen name="program" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="workout/[id]" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="penalty" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="lock" options={{ animation: 'fade', gestureEnabled: false }} />
       </Stack>
     </>
   );

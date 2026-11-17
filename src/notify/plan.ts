@@ -75,6 +75,16 @@ export function planNotifications(st: AppState, now: Date = new Date()): Planned
       add('remind', 20, 30, '[SYSTEM] Peringatan', `Dungeon hari ini (${w!.name}) belum dimasuki.`);
     }
 
+    // Lockdown: peringatan 15 menit sebelumnya & saat mulai
+    if (st.settings.lock.enabled && pending) {
+      const { hour, minute } = st.settings.lock;
+      const lockAt = at(d, hour, minute);
+      const warn = new Date(lockAt.getTime() - 15 * 60_000);
+      const hhmm = `${String(hour).padStart(2, '0')}.${String(minute).padStart(2, '0')}`;
+      out.push({ id: `${PREFIX}${k}-lockwarn`, at: warn, title: '[SYSTEM] Lockdown dalam 15 Menit', body: `Jam ${hhmm} aplikasi lain dikunci jika dungeon ${w!.name} belum selesai.` });
+      out.push({ id: `${PREFIX}${k}-lock`, at: lockAt, title: '[SYSTEM] LOCKDOWN AKTIF', body: 'Akses aplikasi dibatasi sampai dungeon hari ini selesai. Masuk dungeon, Hunter.' });
+    }
+
     // 21.30 streak terancam / reward menunggu
     if (n.streak) {
       if (pending) {
