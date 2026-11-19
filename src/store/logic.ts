@@ -181,6 +181,8 @@ function attrPoints(st: AppState, sessions: Session[], restDays: string[]) {
   return p;
 }
 
+export const ATTR_POINTS_PER_LEVEL = 4;
+
 export function attributes(st: AppState) {
   const now = new Date();
   const weekAgo = addDays(now, -7).toISOString();
@@ -190,8 +192,22 @@ export function attributes(st: AppState) {
     st.sessions.filter((s) => s.startedAt < weekAgo),
     st.restDays.filter((d) => d < dayKey(addDays(now, -7))),
   );
-  const val = (pts: number) => 5 + Math.floor(pts / 4);
-  return ATTRS.map((a) => ({ attr: a, value: val(all[a]), delta: val(all[a]) - val(old[a]) }));
+  const val = (pts: number) => 5 + Math.floor(pts / ATTR_POINTS_PER_LEVEL);
+  return ATTRS.map((a) => {
+    const pts = all[a];
+    const into = pts % ATTR_POINTS_PER_LEVEL;
+    return {
+      attr: a,
+      value: val(pts),
+      delta: val(pts) - val(old[a]),
+      /** total poin mentah */
+      points: pts,
+      /** progres menuju +1 berikutnya (0–1) */
+      progress: into / ATTR_POINTS_PER_LEVEL,
+      /** poin yang masih dibutuhkan untuk +1 */
+      toNext: ATTR_POINTS_PER_LEVEL - into,
+    };
+  });
 }
 
 // ---------- PR ----------

@@ -50,7 +50,8 @@
     "typecheck": "tsc --noEmit",
     "gifs": "node --experimental-strip-types --no-warnings scripts/export-moves.mjs /tmp/moves.json && python3 scripts/render_gifs.py /tmp/moves.json docs/gerakan",
     "build:apk": "npx eas-cli@latest build -p android --profile preview",
-    "icons": "node scripts/make-icons.js"
+    "icons": "node scripts/make-icons.js",
+    "graph": "graphify update . && graphify cluster-only . --no-label && python3 scripts/graph-labels.py && graphify cluster-only ."
   },
   "private": true
 }

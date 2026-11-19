@@ -1,12 +1,14 @@
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AttrSheet } from '@/components/attr-sheet';
 import { Radar } from '@/components/charts';
 import { Avatar, Body, Button, Card, Icon, IconButton, IconName, Label, Mono, ProgressBar, Screen, Stat, TopBar } from '@/components/ui';
 import { dayKey } from '@/store/dates';
 import { DebuffTag, PenaltyCard, RestPassControl, SystemNotice } from '@/components/penalty';
 import { WeekBanner } from '@/components/program';
+import { ATTR_ICON } from '@/store/attr-info';
 import { fmtLockTime, lockPendingToday } from '@/store/lock';
 import { isTrainingDay } from '@/store/penalty';
 import { ATTR_LABEL, attributes, currentStreak, DAY_NAMES, hasSchedule, isoDay, levelInfo, rankFor, titleById, todayPlan, totalXp, weekGrid } from '@/store/logic';
@@ -14,16 +16,10 @@ import { useStore } from '@/store/store';
 import type { Attr } from '@/store/types';
 import { C, F, glow, hexA, RANK_COLOR } from '@/theme';
 
-const ATTR_ICON: Record<Attr, IconName> = {
-  STR: 'dumbbell',
-  AGI: 'run-fast',
-  END: 'shield-outline',
-  VIT: 'heart-outline',
-  DIS: 'lightning-bolt-outline',
-};
 
 export default function StatusScreen() {
   const { state, actions } = useStore();
+  const [attrOpen, setAttrOpen] = useState<Attr | null>(null);
   const p = state.profile!;
   const xp = totalXp(state);
   const lv = levelInfo(xp);
@@ -95,17 +91,30 @@ export default function StatusScreen() {
 
       <View style={{ gap: 10, marginTop: 12 }}>
         {attrs.map((a) => (
-          <View key={a.attr} style={styles.attrRow}>
+          <Pressable
+            key={a.attr}
+            onPress={() => setAttrOpen(a.attr)}
+            accessibilityRole="button"
+            accessibilityLabel={`${ATTR_LABEL[a.attr]} ${a.value}, lihat detail`}
+            style={({ pressed }) => [styles.attrRow, pressed && { backgroundColor: '#1d1730', borderColor: C.borderStrong }]}>
             <Icon name={ATTR_ICON[a.attr]} color={C.lavender} size={22} />
             <View style={{ flex: 1 }}>
               <Text style={styles.attrName}>{a.attr}</Text>
               <Text style={styles.attrSub}>{ATTR_LABEL[a.attr]}</Text>
+              <View style={styles.attrTrack}>
+                <View style={[styles.attrFill, { width: `${a.progress * 100}%` }]} />
+              </View>
             </View>
             <Stat size={26}>{String(a.value).padStart(2, '0')}</Stat>
             <Text style={[styles.delta, { color: a.delta > 0 ? C.success : C.textFaint }]}>{a.delta > 0 ? `+${a.delta}` : '–'}</Text>
-          </View>
+            <Icon name="chevron-right" size={18} color={C.textFaint} />
+          </Pressable>
         ))}
+        <Label center color={C.textFaint}>
+          Ketuk stat untuk melihat cara menaikkannya
+        </Label>
       </View>
+      <AttrSheet attr={attrOpen} onClose={() => setAttrOpen(null)} />
 
       {/* Streak */}
       <Card style={{ marginTop: 24 }}>
@@ -208,6 +217,8 @@ const styles = StyleSheet.create({
   },
   attrName: { fontFamily: F.title, color: C.text, fontSize: 15, letterSpacing: 1.5 },
   attrSub: { fontFamily: F.body, color: C.textFaint, fontSize: 11 },
+  attrTrack: { height: 3, borderRadius: 2, backgroundColor: '#221d30', marginTop: 5, maxWidth: 140, overflow: 'hidden' },
+  attrFill: { height: '100%', backgroundColor: C.primary },
   delta: { fontFamily: F.mono, fontSize: 13, width: 28 },
   streak: { fontFamily: F.title, color: C.text, fontSize: 22 },
   lockHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14 },
