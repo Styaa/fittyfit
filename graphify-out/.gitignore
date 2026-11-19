@@ -1,0 +1,6 @@
+# dibuat ulang otomatis / khusus mesin
+cache/
+20*/
+.graphify_root
+.graphify_build.json
+manifest.json
