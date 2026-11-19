@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar, Body, Button, Card, Chip, Icon, IconButton, Label, Mono, ProgressBar, Screen, Sheet, Tag, TopBar } from '@/components/ui';
+import { DeadlineTimer } from '@/components/deadline-timer';
 import { PenaltyCard, RestPassControl, SystemNotice } from '@/components/penalty';
 import { ExerciseGuideSheet, InfoCard, rxLine, TECH_LABEL, WeekBanner } from '@/components/program';
 import { dayKey } from '@/store/dates';
@@ -164,6 +165,12 @@ function TodayDungeon() {
           </Pressable>
         )}
       </View>
+
+      {isScheduled && !doneToday ? (
+        <View style={{ marginTop: 18 }}>
+          <DeadlineTimer />
+        </View>
+      ) : null}
 
       <View style={{ marginTop: 20 }}>
         <InfoCard icon="run" title="Pemanasan 5–8 menit" lines={WARMUP[workout.focus ?? 'upper']} />

@@ -39,3 +39,21 @@ export function lockPendingToday(st: AppState, now: Date = new Date()) {
 
 export const fmtLockTime = (st: AppState) =>
   `${String(st.settings.lock.hour).padStart(2, '0')}.${String(st.settings.lock.minute).padStart(2, '0')}`;
+
+export interface Deadline {
+  kind: 'lock' | 'penalty';
+  target: Date;
+}
+
+/**
+ * Batas terdekat hari ini jika dungeon belum selesai:
+ * Lockdown (jika aktif & belum lewat jamnya), lalu Penalty Quest di 23.59.
+ * null jika bukan hari latihan atau hari ini sudah aman.
+ */
+export function nextDeadline(st: AppState, now: Date = new Date()): Deadline | null {
+  if (!st.profile || !workoutForDay(st, isoDay(now))) return null;
+  if (unlockedDates(st, now).includes(dayKey(now))) return null;
+  const lockAt = lockStartToday(st, now);
+  if (st.settings.lock.enabled && now < lockAt) return { kind: 'lock', target: lockAt };
+  return { kind: 'penalty', target: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59) };
+}
