@@ -471,7 +471,7 @@ function SetScreen({
 
       {demo ? (
         <View style={{ marginTop: 12 }}>
-          <MoveDemo name={e.name} tempo={e.tempo} height={180} />
+          <MoveDemo name={e.name} tempo={e.tempo} height={180} playing={!paused && !logOpen} resetKey={running ? 'set' : 'preview'} />
         </View>
       ) : null}
 
@@ -633,7 +633,7 @@ function RestScreen({
         <Text style={[styles.exName, { marginBottom: 6 }]}>{e.name.toUpperCase()}</Text>
         {hasDemo(e.name) ? (
           <View style={{ marginBottom: 12 }}>
-            <MoveDemo name={e.name} tempo={e.tempo} height={130} />
+            <MoveDemo name={e.name} tempo={e.tempo} height={130} controls={false} />
           </View>
         ) : null}
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>

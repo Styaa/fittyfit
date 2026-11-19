@@ -9,15 +9,45 @@ import { Icon } from './ui';
 
 export const hasDemo = (name: string) => !!getMove(name);
 
-/** Animasi vektor contoh gerakan, mengikuti tempo latihan */
-export function MoveDemo({ name, tempo, height = 190, speed = 1 }: { name: string; tempo?: string; height?: number; speed?: number }) {
+/**
+ * Animasi vektor contoh gerakan, mengikuti tempo latihan.
+ * - `playing` (opsional): dikendalikan dari luar (mis. timer set) → tombol pause animasi disembunyikan.
+ * - `resetKey`: setiap nilainya berubah, animasi diulang dari awal.
+ * - `controls`: tampilkan tombol pause & 2× (hanya untuk lembar panduan).
+ */
+export function MoveDemo({
+  name,
+  tempo,
+  height = 190,
+  speed = 1,
+  playing: playingProp,
+  resetKey,
+  controls = true,
+}: {
+  name: string;
+  tempo?: string;
+  height?: number;
+  speed?: number;
+  playing?: boolean;
+  resetKey?: string | number;
+  controls?: boolean;
+}) {
   const move = getMove(name);
   const prep = useMemo(() => (move ? prepare(move) : null), [move]);
   const segs = useMemo(() => (move ? timeline(move, tempo) : []), [move, tempo]);
   const [time, setTime] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playingLocal, setPlaying] = useState(true);
   const [fast, setFast] = useState(false);
   const last = useRef<number | null>(null);
+  const external = playingProp !== undefined;
+  const playing = external ? playingProp : playingLocal;
+  const interactive = controls && !external;
+
+  // ulang dari awal saat resetKey berubah (mis. set dimulai)
+  useEffect(() => {
+    setTime(0);
+    last.current = null;
+  }, [resetKey]);
 
   useEffect(() => {
     if (!prep || !playing) {
@@ -44,7 +74,7 @@ export function MoveDemo({ name, tempo, height = 190, speed = 1 }: { name: strin
 
   return (
     <View style={styles.wrap}>
-      <Pressable onPress={() => setPlaying((p) => !p)}>
+      <Pressable onPress={interactive ? () => setPlaying((p) => !p) : undefined} disabled={!interactive}>
         <Svg width="100%" height={height} viewBox={`0 0 ${VB.w} ${VB.h}`}>
           {shapes.map((s, i) => {
             if (s.k === 'line')
@@ -56,16 +86,22 @@ export function MoveDemo({ name, tempo, height = 190, speed = 1 }: { name: strin
         </Svg>
       </Pressable>
       <View style={styles.bar}>
-        <Pressable onPress={() => setPlaying((p) => !p)} hitSlop={10}>
-          <Icon name={playing ? 'pause' : 'play'} size={18} color={C.lavender} />
-        </Pressable>
-        <Text style={styles.phase}>{phase || ' '}</Text>
+        {interactive ? (
+          <Pressable onPress={() => setPlaying((p) => !p)} hitSlop={10}>
+            <Icon name={playing ? 'pause' : 'play'} size={18} color={C.lavender} />
+          </Pressable>
+        ) : !playing ? (
+          <Icon name="pause" size={16} color={C.textDim} />
+        ) : null}
+        <Text style={[styles.phase, !playing && { color: C.textDim }]}>{!playing && external ? 'PAUSED' : phase || ' '}</Text>
         <View style={styles.track}>
           <View style={[styles.fill, { width: `${progress * 100}%` }]} />
         </View>
-        <Pressable onPress={() => setFast((f) => !f)} hitSlop={10}>
-          <Text style={[styles.speed, fast && { color: C.lavender }]}>{fast ? '2×' : '1×'}</Text>
-        </Pressable>
+        {interactive && (
+          <Pressable onPress={() => setFast((f) => !f)} hitSlop={10}>
+            <Text style={[styles.speed, fast && { color: C.lavender }]}>{fast ? '2×' : '1×'}</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
