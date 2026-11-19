@@ -18,6 +18,7 @@ export function initialState(): AppState {
     program: newProgramInfo(),
     sessions: [],
     active: null,
+    restTimer: null,
     weights: [],
     photos: [],
     quests: [],

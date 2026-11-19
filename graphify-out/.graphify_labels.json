@@ -1,1 +1,23 @@
-{"0": "Layar Aplikasi & Sesi Latihan", "1": "Logika Game: XP, Streak, Quest, Penalti", "2": "Mesin Animasi Gerakan", "3": "Lockdown & Notifikasi (JS)", "4": "Model Data & Program 8 Minggu", "5": "Modul Native Lockdown (Kotlin)", "6": "UI Kit, Tema & Navigasi Tab", "7": "Konfigurasi app.json", "8": "Render GIF Gerakan (Python)", "9": "Dependensi Runtime", "10": "package.json & DevDependencies", "11": "Skrip npm", "12": "Generator Ikon Aplikasi", "13": "Konfigurasi TypeScript", "14": "Paket modul shadow-lock", "15": "Dependensi: expo", "16": "Dependensi: expo-constants", "17": "Dependensi: expo-file-system", "18": "Dependensi: expo-font", "19": "Dependensi: @expo-google-fonts/chivo", "20": "Dependensi: @expo-google-fonts/jetbrains-mono", "21": "Dependensi: @expo-google-fonts/manrope", "22": "Dependensi: expo-haptics", "23": "Dependensi: expo-image", "24": "Dependensi: expo-image-picker", "25": "Dependensi: expo-keep-awake", "26": "Dependensi: expo-linear-gradient", "27": "Dependensi: expo-linking", "28": "Dependensi: expo-splash-screen", "29": "Dependensi: expo-status-bar", "30": "Dependensi: expo-system-ui", "31": "Dependensi: @expo/vector-icons", "32": "Dependensi: @react-native-async-storage/async-storage", "33": "Dependensi: react-native-gesture-handler", "34": "Dependensi: react-native-safe-area-context", "35": "Dependensi: react-native-screens", "36": "Dependensi: react-native-web", "37": "Dependensi: react-native-worklets", "38": "Gradle modul Lockdown"}
+{
+  "0": "Layar Aplikasi & Sesi Latihan",
+  "2": "Mesin Animasi Gerakan",
+  "3": "Lockdown & Notifikasi (JS)",
+  "5": "Modul Native Lockdown (Kotlin)",
+  "6": "UI Kit, Tema & Navigasi Tab",
+  "7": "Konfigurasi app.json",
+  "8": "Render GIF Gerakan (Python)",
+  "11": "Skrip npm",
+  "12": "Generator Ikon Aplikasi",
+  "13": "Konfigurasi TypeScript",
+  "14": "Paket modul shadow-lock",
+  "16": "Dependensi: expo-constants",
+  "18": "Dependensi: expo-font",
+  "20": "Dependensi: @expo-google-fonts/jetbrains-mono",
+  "21": "Dependensi: @expo-google-fonts/manrope",
+  "25": "Dependensi: expo-keep-awake",
+  "32": "Dependensi: @react-native-async-storage/async-storage",
+  "34": "Dependensi: react-native-safe-area-context",
+  "35": "Dependensi: react-native-screens",
+  "36": "Dependensi: react-native-web",
+  "38": "Gradle modul Lockdown"
+}

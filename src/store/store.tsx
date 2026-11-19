@@ -6,7 +6,7 @@ import { initialState, newProgramInfo, uid } from './defaults';
 import { DEBUFF_FACTOR, evaluateDaily, REST_PASS_PRICE, restPassBlock } from './penalty';
 import { programWorkouts } from './program8';
 import { computeSessionXp, QUESTS, questStatus } from './logic';
-import type { AppState, Profile, SetLog, Settings, Workout } from './types';
+import type { AppState, Profile, RestTimer, SetLog, Settings, Workout } from './types';
 
 const KEY = 'shadowfit:state:v1';
 
@@ -41,6 +41,9 @@ function makeActions(update: (fn: Updater) => void) {
               active: { id: uid(), workoutId: workout.id, workoutName: workout.name, startedAt: new Date().toISOString(), sets: [], xp: 0 },
             },
       ),
+    startRest: (t: RestTimer) => update((s) => ({ ...s, restTimer: t })),
+    setRestEnd: (endsAt: number) => update((s) => (s.restTimer ? { ...s, restTimer: { ...s.restTimer, endsAt } } : s)),
+    clearRest: () => update((s) => (s.restTimer ? { ...s, restTimer: null } : s)),
     logSet: (set: SetLog) => update((s) => (s.active ? { ...s, active: { ...s.active, sets: [...s.active.sets, set] } } : s)),
     undoLastSet: () => update((s) => (s.active ? { ...s, active: { ...s.active, sets: s.active.sets.slice(0, -1) } } : s)),
     /** Mengembalikan XP yang didapat */
@@ -48,7 +51,7 @@ function makeActions(update: (fn: Updater) => void) {
       let gained = 0;
       update((s) => {
         if (!s.active) return s;
-        if (s.active.sets.length === 0) return { ...s, active: null };
+        if (s.active.sets.length === 0) return { ...s, active: null, restTimer: null };
         const done = { ...s.active, endedAt: new Date().toISOString() };
         done.xp = computeSessionXp(done);
         let debuffSessions = s.debuffSessions ?? 0;
@@ -58,11 +61,11 @@ function makeActions(update: (fn: Updater) => void) {
           debuffSessions -= 1;
         }
         gained = done.xp;
-        return { ...s, active: null, sessions: [...s.sessions, done], debuffSessions };
+        return { ...s, active: null, restTimer: null, sessions: [...s.sessions, done], debuffSessions };
       });
       return gained;
     },
-    abandonSession: () => update((s) => ({ ...s, active: null })),
+    abandonSession: () => update((s) => ({ ...s, active: null, restTimer: null })),
     deleteSession: (id: string) => update((s) => ({ ...s, sessions: s.sessions.filter((x) => x.id !== id) })),
 
     logWeight: (kg: number, date = dayKey()) =>

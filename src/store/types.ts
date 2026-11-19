@@ -91,6 +91,18 @@ export interface Session {
   debuffed?: boolean;
 }
 
+/** Timer istirahat antar set — disimpan global agar tetap jalan saat pindah halaman */
+export interface RestTimer {
+  startedAt: number;
+  endsAt: number;
+  /** latihan & set berikutnya yang menunggu */
+  exerciseId: string;
+  exerciseName: string;
+  setIndex: number;
+  sets: number;
+  workoutName: string;
+}
+
 export interface WeightEntry {
   date: string; // YYYY-MM-DD
   kg: number;
@@ -160,6 +172,7 @@ export interface AppState {
   workouts: Workout[];
   sessions: Session[];
   active: Session | null;
+  restTimer: RestTimer | null;
   weights: WeightEntry[];
   photos: Photo[];
   quests: QuestAccept[];

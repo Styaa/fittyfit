@@ -13,7 +13,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { setLockConfig } from '@modules/shadow-lock';
 
-import { configureNotifications, syncNotifications } from '@/notify/notify';
+import { RestBanner } from '@/components/rest-banner';
+import { cancelRestDone, configureNotifications, scheduleRestDone, syncNotifications } from '@/notify/notify';
 import { dayKey } from '@/store/dates';
 import { lockDays, unlockedDates } from '@/store/lock';
 import { StoreProvider, useStore } from '@/store/store';
@@ -41,6 +42,18 @@ function Daemon() {
       clearInterval(t);
     };
   }, [actions]);
+
+  // timer istirahat global: notifikasi "Rest selesai" tetap terjadwal walau pindah halaman
+  const rest = state.restTimer;
+  useEffect(() => {
+    const st = ref.current;
+    if (rest && !st.active) {
+      actions.clearRest();
+      return;
+    }
+    if (rest) scheduleRestDone(rest.endsAt, rest.exerciseName, rest.setIndex, st.settings.notif.enabled && st.settings.notif.restTimer);
+    else cancelRestDone();
+  }, [rest?.endsAt, rest?.exerciseId, !!state.active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // konfigurasi lockdown → modul native (langsung, tanpa jeda, agar kunci segera terbuka setelah latihan)
   const lockSig = JSON.stringify([
@@ -112,6 +125,7 @@ function Gate() {
         <Stack.Screen name="penalty" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="lock" options={{ animation: 'fade', gestureEnabled: false }} />
       </Stack>
+      <RestBanner />
     </>
   );
 }

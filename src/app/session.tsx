@@ -24,7 +24,7 @@ import {
   toUnit,
   totalXp,
 } from '@/store/logic';
-import { cancelRestDone, scheduleRestDone } from '@/notify/notify';
+import { cancelRestDone } from '@/notify/notify';
 import { WARMUP } from '@/store/program8';
 import { useStore } from '@/store/store';
 import type { ExerciseTemplate } from '@/store/types';
@@ -91,9 +91,10 @@ export default function SessionScreen() {
   const { state, actions } = useStore();
   const active = state.active;
   const { workout } = useSessionWorkout();
-  const [phase, setPhase] = useState<Phase>('overview');
-  const [exId, setExId] = useState<string | null>(null);
-  const [restEnd, setRestEnd] = useState(0);
+  // timer istirahat disimpan global → kembali ke halaman istirahat jika masih berjalan
+  const rest = state.restTimer;
+  const [phase, setPhase] = useState<Phase>(rest && active ? 'rest' : 'overview');
+  const [exId, setExId] = useState<string | null>(rest?.exerciseId ?? null);
   const [summary, setSummary] = useState<null | SummaryData>(null);
 
   const haptic = (kind: 'light' | 'heavy' | 'success') => {
@@ -143,20 +144,31 @@ export default function SessionScreen() {
     setPhase('summary');
   };
 
+  const beginRest = (e: ExerciseTemplate, next: ExerciseTemplate, nextSetIndex: number) => {
+    const now = Date.now();
+    actions.startRest({
+      startedAt: now,
+      endsAt: now + e.restSec * 1000,
+      exerciseId: next.id,
+      exerciseName: next.name,
+      setIndex: nextSetIndex,
+      sets: next.sets,
+      workoutName: workout.name,
+    });
+    setExId(next.id);
+    setPhase('rest');
+  };
+
   const onSetLogged = (e: ExerciseTemplate) => {
     const done = doneOf(e.id) + 1; // termasuk set yang baru dicatat
     haptic('success');
     if (done < e.sets) {
-      setRestEnd(Date.now() + e.restSec * 1000);
-      setPhase('rest');
+      beginRest(e, e, done + 1);
     } else {
       // pilih latihan berikutnya yang belum selesai
       const nextEx = workout.exercises.find((x) => x.id !== e.id && doneOf(x.id) < x.sets);
-      if (nextEx) {
-        setExId(nextEx.id);
-        setRestEnd(Date.now() + e.restSec * 1000);
-        setPhase('rest');
-      } else setPhase('overview');
+      if (nextEx) beginRest(e, nextEx, doneOf(nextEx.id) + 1);
+      else setPhase('overview');
     }
   };
 
@@ -173,15 +185,18 @@ export default function SessionScreen() {
     );
   }
 
-  if (phase === 'rest' && exercise) {
+  if (phase === 'rest' && exercise && rest) {
     return (
       <RestScreen
         exercise={exercise}
         setIndex={doneOf(exercise.id) + 1}
-        restEnd={restEnd}
-        setRestEnd={setRestEnd}
+        restEnd={rest.endsAt}
+        setRestEnd={actions.setRestEnd}
         workoutName={workout.name}
-        onStart={() => setPhase('set')}
+        onStart={() => {
+          actions.clearRest();
+          setPhase('set');
+        }}
         onBack={() => setPhase('overview')}
         haptic={haptic}
       />
@@ -190,7 +205,16 @@ export default function SessionScreen() {
 
   return (
     <Overview
+      onResumeRest={
+        rest
+          ? () => {
+              setExId(rest.exerciseId);
+              setPhase('rest');
+            }
+          : undefined
+      }
       onPick={(id) => {
+        actions.clearRest();
         setExId(id);
         setPhase('set');
       }}
@@ -209,7 +233,7 @@ export default function SessionScreen() {
 }
 
 // ================= OVERVIEW =================
-function Overview({ onPick, onFinish }: { onPick: (id: string) => void; onFinish: () => void }) {
+function Overview({ onPick, onFinish, onResumeRest }: { onPick: (id: string) => void; onFinish: () => void; onResumeRest?: () => void }) {
   const { state, actions } = useStore();
   const active = state.active!;
   const { workout: wk, week } = useSessionWorkout();
@@ -242,6 +266,20 @@ function Overview({ onPick, onFinish }: { onPick: (id: string) => void; onFinish
           <Text style={styles.timerText}>{fmtClock(elapsed).padStart(8, '00:')}</Text>
         </View>
       </View>
+
+      {state.restTimer && onResumeRest ? (
+        <Pressable onPress={onResumeRest} style={({ pressed }) => [styles.restResume, pressed && { opacity: 0.8 }]}>
+          <Icon name="timer-sand" size={22} color={C.success} />
+          <View style={{ flex: 1 }}>
+            <Label color={C.success}>{state.restTimer.endsAt <= now ? 'Rest selesai · siap' : 'Istirahat berjalan'}</Label>
+            <Body size={13} color={C.text}>
+              Set {state.restTimer.setIndex}/{state.restTimer.sets} · {state.restTimer.exerciseName}
+            </Body>
+          </View>
+          <Text style={styles.restResumeClock}>{fmtClock(Math.ceil(Math.max(0, (state.restTimer.endsAt - now) / 1000)))}</Text>
+          <Icon name="chevron-right" size={20} color={C.success} />
+        </Pressable>
+      ) : null}
 
       {week != null && (
         <View style={{ marginTop: 24 }}>
@@ -576,12 +614,6 @@ function RestScreen({
   const left = Math.max(0, (restEnd - now) / 1000);
   const done = left <= 0;
   const fired = useRef(false);
-  // notifikasi saat rest habis (berguna saat HP terkunci / di aplikasi lain)
-  useEffect(() => {
-    scheduleRestDone(restEnd, e.name, setIndex, state.settings.notif.enabled && state.settings.notif.restTimer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [restEnd]);
-  useEffect(() => () => void cancelRestDone(), []);
   useEffect(() => {
     if (done && !fired.current) {
       fired.current = true;
@@ -730,6 +762,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     height: 56,
   },
+  restResume: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: hexA(C.success, 0.45),
+    backgroundColor: '#0f1f1c',
+    borderRadius: 12,
+    padding: 14,
+  },
+  restResumeClock: { fontFamily: F.monoBold, color: C.success, fontSize: 22 },
   timerText: { fontFamily: F.monoBold, color: '#fca5a5', fontSize: 26, letterSpacing: 2 },
   exIcon: { width: 50, height: 50, borderRadius: 10, borderWidth: 1, borderColor: '#3a3448', backgroundColor: '#1b1726', alignItems: 'center', justifyContent: 'center' },
   exName: { fontFamily: F.headline, color: C.text, fontSize: 19, letterSpacing: 0.3 },
