@@ -13,11 +13,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { setLockConfig } from '@modules/shadow-lock';
 
-import { RestBanner } from '@/components/rest-banner';
+import { RestBanner, WalkBanner } from '@/components/rest-banner';
 import { cancelRestDone, configureNotifications, scheduleRestDone, syncNotifications } from '@/notify/notify';
 import { dayKey } from '@/store/dates';
 import { lockDays, unlockedDates } from '@/store/lock';
 import { StoreProvider, useStore } from '@/store/store';
+// memuat task latar Mode Jalan (harus didefinisikan saat aplikasi start)
+import '@/walk/tracker';
 import { C } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -124,8 +126,10 @@ function Gate() {
         <Stack.Screen name="workout/[id]" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="penalty" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="lock" options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="walk" options={{ animation: 'slide_from_bottom' }} />
       </Stack>
       <RestBanner />
+      <WalkBanner />
     </>
   );
 }

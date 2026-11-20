@@ -39,10 +39,14 @@ export const ATTR_INFO: Record<Attr, AttrInfo> = {
     name: 'Agility',
     lore: 'Kelincahan dan keseimbangan. Hunter yang gesit tidak pernah kehilangan pijakan.',
     real: 'Keseimbangan & kekuatan satu sisi dari gerakan unilateral kaki: split squat, lunge, step-up, single-leg RDL.',
-    sources: [{ text: 'Setiap set selesai dari gerakan bertanda AGI', points: '+1 poin' }],
+    sources: [
+      { text: 'Setiap set selesai dari gerakan bertanda AGI', points: '+1 poin' },
+      { text: 'Setiap 1 km jalan kaki dengan Mode Jalan (quest jalan)', points: '+1 poin' },
+    ],
     tips: [
       'Gerakan AGI ada di Leg A & Leg B. Jangan lewatkan hari kaki.',
       'Kerjakan kedua sisi (kiri & kanan) dengan jumlah reps yang sama.',
+      'Terima quest jalan (1–10 km) di Quest Board, lalu tekan Mulai Jalan. Setiap km = 1 poin AGI.',
     ],
   },
   END: {

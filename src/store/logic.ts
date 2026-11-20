@@ -167,7 +167,10 @@ export const ATTR_LABEL: Record<Attr, string> = {
   DIS: 'Discipline',
 };
 
-function attrPoints(st: AppState, sessions: Session[], restDays: string[]) {
+export const WALK_AGI_PER_KM = 1;
+
+/** `before`: hanya hitung jalan kaki sebelum waktu ini (untuk kenaikan 7 hari) */
+function attrPoints(st: AppState, sessions: Session[], restDays: string[], before?: string) {
   const p: Record<Attr, number> = { STR: 0, AGI: 0, END: 0, VIT: 0, DIS: 0 };
   for (const s of sessions) {
     for (const x of s.sets) {
@@ -178,6 +181,8 @@ function attrPoints(st: AppState, sessions: Session[], restDays: string[]) {
     p.VIT += 1;
   }
   p.VIT += restDays.length * 0.5;
+  // Mode Jalan: +1 AGI per km
+  for (const w of st.walks ?? []) if (!before || w.startedAt < before) p.AGI += (w.distanceM / 1000) * WALK_AGI_PER_KM;
   return p;
 }
 
@@ -191,6 +196,7 @@ export function attributes(st: AppState) {
     st,
     st.sessions.filter((s) => s.startedAt < weekAgo),
     st.restDays.filter((d) => d < dayKey(addDays(now, -7))),
+    weekAgo,
   );
   const val = (pts: number) => 5 + Math.floor(pts / ATTR_POINTS_PER_LEVEL);
   return ATTRS.map((a) => {
@@ -258,6 +264,8 @@ export interface QuestDef {
   xp: number;
   coins: number;
   titleReward?: string;
+  /** quest jalan kaki (Mode Jalan GPS): target dalam km */
+  walkKm?: number;
   metric: Metric;
 }
 
@@ -276,6 +284,32 @@ export const QUESTS: QuestDef[] = [
   { id: 'e-sessions', title: 'Centurion Trial', desc: 'Selesaikan 100 sesi latihan.', rank: 'A', type: 'EPIC', target: 100, unit: 'sesi', xp: 4000, coins: 400, metric: (_, ss) => ss.length },
   { id: 'e-ton', title: 'Abyssal Ton', desc: 'Angkat 10.000 kg dalam satu sesi.', rank: 'A', type: 'EPIC', target: 10000, unit: 'kg', xp: 3000, coins: 300, metric: (_, ss) => Math.max(0, ...ss.map(sessionVolume)) },
 ];
+
+/** km jalan kaki sejak `from` (ISO) */
+export const walkedKm = (st: AppState, from: string) =>
+  (st.walks ?? []).filter((w) => w.startedAt >= from).reduce((a, w) => a + w.distanceM, 0) / 1000;
+
+const walkQuest = (km: number, rank: Rank, xp: number, coins: number, title: string, desc: string): QuestDef => ({
+  id: `walk-${km}`,
+  title,
+  desc,
+  rank,
+  type: 'DAILY',
+  target: km,
+  unit: 'km',
+  xp,
+  coins,
+  walkKm: km,
+  metric: (st, _, p) => Math.floor(walkedKm(st, p.from) * 100) / 100,
+});
+
+QUESTS.push(
+  walkQuest(1, 'E', 60, 10, 'Shadow Stroll', 'Jalan kaki 1 km hari ini dengan Mode Jalan. Langkah pertama seorang Hunter.'),
+  walkQuest(3, 'D', 150, 25, 'Patrol Route', 'Jalan kaki 3 km hari ini. Kenali wilayahmu.'),
+  walkQuest(5, 'C', 260, 45, 'Long March', 'Jalan kaki 5 km hari ini. Daya tahan diuji.'),
+  walkQuest(8, 'B', 420, 70, 'Iron Trek', 'Jalan kaki 8 km hari ini. Hanya yang gigih sampai di ujung.'),
+  walkQuest(10, 'A', 550, 100, 'Abyss Pilgrimage', 'Jalan kaki 10 km hari ini. Peringatan: perjalanan panjang, bawa air minum.'),
+);
 
 export function questPeriod(q: QuestDef): { key: string; from: string } {
   const now = new Date();

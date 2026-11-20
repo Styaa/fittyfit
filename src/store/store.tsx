@@ -6,7 +6,7 @@ import { initialState, newProgramInfo, uid } from './defaults';
 import { DEBUFF_FACTOR, evaluateDaily, REST_PASS_PRICE, restPassBlock } from './penalty';
 import { programWorkouts } from './program8';
 import { computeSessionXp, QUESTS, questStatus } from './logic';
-import type { AppState, Profile, RestTimer, SetLog, Settings, Workout } from './types';
+import type { AppState, Profile, RestTimer, SetLog, Settings, WalkLog, Workout } from './types';
 
 const KEY = 'shadowfit:state:v1';
 
@@ -41,6 +41,8 @@ function makeActions(update: (fn: Updater) => void) {
               active: { id: uid(), workoutId: workout.id, workoutName: workout.name, startedAt: new Date().toISOString(), sets: [], xp: 0 },
             },
       ),
+    addWalk: (w: Omit<WalkLog, 'id'>) =>
+      update((s) => (w.distanceM <= 0 ? s : { ...s, walks: [...(s.walks ?? []), { id: uid(), ...w }] })),
     startRest: (t: RestTimer) => update((s) => ({ ...s, restTimer: t })),
     setRestEnd: (endsAt: number) => update((s) => (s.restTimer ? { ...s, restTimer: { ...s.restTimer, endsAt } } : s)),
     clearRest: () => update((s) => (s.restTimer ? { ...s, restTimer: null } : s)),
