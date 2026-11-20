@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar, Body, Button, Card, Chip, Icon, IconButton, Label, Mono, ProgressBar, Screen, Sheet, Tag, TopBar } from '@/components/ui';
 import { DeadlineTimer } from '@/components/deadline-timer';
+import { useWalk } from '@/walk/tracker';
 import { PenaltyCard, RestPassControl, SystemNotice } from '@/components/penalty';
 import { ExerciseGuideSheet, InfoCard, rxLine, TECH_LABEL, WeekBanner } from '@/components/program';
 import { dayKey } from '@/store/dates';
@@ -246,8 +247,9 @@ function TodayDungeon() {
 
 function QuestBoard() {
   const { state, actions } = useStore();
-  const [filter, setFilter] = useState<'ALL' | QuestType>('ALL');
-  const list = QUESTS.filter((q) => filter === 'ALL' || q.type === filter);
+  const [filter, setFilter] = useState<'ALL' | QuestType | 'WALK'>('ALL');
+  const walk = useWalk();
+  const list = QUESTS.filter((q) => filter === 'ALL' || (filter === 'WALK' ? !!q.walkKm : q.type === filter && !q.walkKm));
   const stars = { E: 1, D: 1, C: 2, B: 2, A: 3, S: 3 } as const;
 
   return (
@@ -283,7 +285,7 @@ function QuestBoard() {
         />
       </Card>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 10 }}>
-        {(['ALL', 'DAILY', 'WEEKLY', 'EPIC'] as const).map((f) => (
+        {(['ALL', 'DAILY', 'WALK', 'WEEKLY', 'EPIC'] as const).map((f) => (
           <Chip key={f} label={f === 'ALL' ? 'All Quests' : f} active={filter === f} onPress={() => setFilter(f)} />
         ))}
       </ScrollView>
@@ -304,7 +306,7 @@ function QuestBoard() {
                     RANK {q.rank}
                   </Mono>
                 </View>
-                <Tag label={q.type} color={C.textDim} />
+                <Tag label={q.walkKm ? "WALK · GPS" : q.type} color={q.walkKm ? C.success : C.textDim} />
               </View>
               <Text style={[styles.qTitle, st.claimed && { textDecorationLine: 'line-through', color: C.textDim }]}>{q.title}</Text>
               <Body>{q.desc}</Body>
@@ -343,6 +345,13 @@ function QuestBoard() {
 
               {st.claimed ? (
                 <Button label="Reward Claimed" icon="check" variant="ghost" disabled />
+              ) : st.accepted && q.walkKm && !st.done ? (
+                <Button
+                  label={walk.active ? 'Lanjutkan Mode Jalan' : 'Mulai Jalan'}
+                  icon="walk"
+                  variant={walk.active ? 'success' : 'light'}
+                  onPress={() => router.push('/walk')}
+                />
               ) : st.accepted ? (
                 <Button label={st.done ? 'Claim Reward' : 'Quest Active'} icon={st.done ? 'gift-outline' : 'timer-sand'} variant={st.done ? 'success' : 'ghost'} disabled={!st.done} onPress={() => actions.claimQuest(q.id)} />
               ) : (

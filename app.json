@@ -41,13 +41,24 @@
         "expo-image-picker",
         {
           "photosPermission": "Shadow Fit membutuhkan akses foto untuk progress log.",
-          "cameraPermission": "Shadow Fit membutuhkan kamera untuk foto progres."
+          "cameraPermission": "Shadow Fit membutuhkan kamera untuk foto progres.",
+          "microphonePermission": false
         }
       ],
       [
         "expo-notifications",
         {
           "color": "#8B5CF6"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Shadow Fit memakai lokasi untuk menghitung jarak jalan kaki selama Mode Jalan aktif.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": true
         }
       ]
     ],

@@ -103,6 +103,15 @@ export interface RestTimer {
   workoutName: string;
 }
 
+/** Sesi Mode Jalan (GPS) yang sudah selesai */
+export interface WalkLog {
+  id: string;
+  startedAt: string;
+  endedAt: string;
+  distanceM: number;
+  durationSec: number;
+}
+
 export interface WeightEntry {
   date: string; // YYYY-MM-DD
   kg: number;
@@ -173,6 +182,7 @@ export interface AppState {
   sessions: Session[];
   active: Session | null;
   restTimer: RestTimer | null;
+  walks: WalkLog[];
   weights: WeightEntry[];
   photos: Photo[];
   quests: QuestAccept[];

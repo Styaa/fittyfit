@@ -19,6 +19,7 @@ export function initialState(): AppState {
     sessions: [],
     active: null,
     restTimer: null,
+    walks: [],
     weights: [],
     photos: [],
     quests: [],

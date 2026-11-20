@@ -8,6 +8,9 @@ import { fmtClock } from '@/store/dates';
 import { useStore } from '@/store/store';
 import { C, F, glow, hexA } from '@/theme';
 
+import { fmtKm, fmtPace } from '@/walk/geo';
+import { useWalk, walkElapsed } from '@/walk/tracker';
+
 import { Icon } from './ui';
 
 /**
@@ -102,3 +105,38 @@ const styles = StyleSheet.create({
   track: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: '#221d30' },
   fill: { height: '100%' },
 });
+
+/** Pop-up Mode Jalan: jarak & durasi berjalan, ketuk untuk kembali ke halaman Mode Jalan */
+export function WalkBanner() {
+  const { state } = useStore();
+  const pathname = usePathname();
+  const insets = useSafeAreaInsets();
+  const walk = useWalk();
+  const visible = walk.active && pathname !== '/walk';
+  if (!visible) return null;
+  // jika pop-up rest timer juga tampil, letakkan di bawahnya
+  const restShown = !!state.restTimer && !!state.active && pathname !== '/session';
+  const color = walk.paused ? C.gold : C.success;
+  return (
+    <View pointerEvents="box-none" style={[styles.wrap, { top: insets.top + 6 + (restShown ? 60 : 0) }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Mode Jalan ${fmtKm(walk.distanceM)} kilometer, kembali ke Mode Jalan`}
+        onPress={() => router.push('/walk')}
+        style={({ pressed }) => [styles.pill, { borderColor: hexA(color, 0.55) }, glow(color, 14, 0.35), pressed && { transform: [{ scale: 0.98 }], opacity: 0.9 }]}>
+        <View style={[styles.iconBox, { backgroundColor: hexA(color, 0.15) }]}>
+          <Icon name={walk.paused ? 'pause' : 'walk'} size={18} color={color} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text numberOfLines={1} style={[styles.title, { color }]}>
+            {walk.paused ? 'MODE JALAN · DIJEDA' : 'MODE JALAN'}
+          </Text>
+          <Text numberOfLines={1} style={styles.sub}>
+            {fmtClock(walkElapsed(walk))} · pace {fmtPace(walk.distanceM, walkElapsed(walk))}/km
+          </Text>
+        </View>
+        <Text style={[styles.clock, { color }]}>{fmtKm(walk.distanceM)} km</Text>
+      </Pressable>
+    </View>
+  );
+}
