@@ -5,7 +5,7 @@ import { dayKey, parseDay } from './dates';
 import { initialState, newProgramInfo, uid } from './defaults';
 import { DEBUFF_FACTOR, evaluateDaily, REST_PASS_PRICE, restPassBlock } from './penalty';
 import { programWorkouts } from './program8';
-import { computeSessionXp, QUESTS, questStatus } from './logic';
+import { computeSessionXp, levelInfo, QUESTS, questStatus, totalXp } from './logic';
 import type { AppState, Profile, RestTimer, SetLog, Settings, WalkLog, Workout } from './types';
 
 const KEY = 'shadowfit:state:v1';
@@ -43,6 +43,8 @@ function makeActions(update: (fn: Updater) => void) {
       ),
     addWalk: (w: Omit<WalkLog, 'id'>) =>
       update((s) => (w.distanceM <= 0 ? s : { ...s, walks: [...(s.walks ?? []), { id: uid(), ...w }] })),
+    /** tandai level sudah dirayakan (menutup pop-up level up) */
+    ackLevel: (level: number) => update((s) => (level > (s.seenLevel ?? 0) ? { ...s, seenLevel: level } : s)),
     startRest: (t: RestTimer) => update((s) => ({ ...s, restTimer: t })),
     setRestEnd: (endsAt: number) => update((s) => (s.restTimer ? { ...s, restTimer: { ...s.restTimer, endsAt } } : s)),
     clearRest: () => update((s) => (s.restTimer ? { ...s, restTimer: null } : s)),
@@ -174,11 +176,14 @@ function makeActions(update: (fn: Updater) => void) {
     importState: (data: AppState) =>
       update(() => {
         const init = initialState();
-        return {
+        const next: AppState = {
           ...init,
           ...data,
           settings: { ...init.settings, ...data.settings, notif: { ...init.settings.notif, ...(data.settings?.notif ?? {}) }, lock: { ...init.settings.lock, ...(data.settings?.lock ?? {}) } },
         };
+        // backup yang diimpor: jangan rayakan ulang level yang sudah dicapai
+        if (typeof data.seenLevel !== 'number') next.seenLevel = levelInfo(totalXp(next)).level;
+        return next;
       }),
     resetAll: () => update(() => initialState()),
   };
@@ -206,6 +211,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               lock: { ...init.settings.lock, ...(parsed.settings?.lock ?? {}) },
             },
           };
+          // pengguna lama: level saat ini dianggap sudah dirayakan (tanpa pop-up saat update)
+          if (typeof parsed.seenLevel !== 'number') merged.seenLevel = levelInfo(totalXp(merged)).level;
           stateRef.current = merged;
           setState(merged);
         }

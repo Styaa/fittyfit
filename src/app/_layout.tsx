@@ -13,6 +13,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { setLockConfig } from '@modules/shadow-lock';
 
+import { LevelUpOverlay } from '@/components/level-up';
 import { RestBanner, WalkBanner } from '@/components/rest-banner';
 import { cancelRestDone, configureNotifications, scheduleRestDone, syncNotifications } from '@/notify/notify';
 import { dayKey } from '@/store/dates';
@@ -130,6 +131,7 @@ function Gate() {
       </Stack>
       <RestBanner />
       <WalkBanner />
+      <LevelUpOverlay />
     </>
   );
 }

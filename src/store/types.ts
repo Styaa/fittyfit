@@ -183,6 +183,8 @@ export interface AppState {
   active: Session | null;
   restTimer: RestTimer | null;
   walks: WalkLog[];
+  /** level tertinggi yang sudah dirayakan (pop-up level up) */
+  seenLevel: number;
   weights: WeightEntry[];
   photos: Photo[];
   quests: QuestAccept[];

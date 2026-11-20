@@ -20,6 +20,7 @@ export function initialState(): AppState {
     active: null,
     restTimer: null,
     walks: [],
+    seenLevel: 1,
     weights: [],
     photos: [],
     quests: [],
