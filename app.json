@@ -18,10 +18,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.styaa.fittyfit",
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "package": "com.styaa.fittyfit"
     },
     "web": {
       "output": "single",
