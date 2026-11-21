@@ -6,11 +6,13 @@ import React, { useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { LineChart } from '@/components/charts';
+import { RouteView } from '@/components/route-view';
 import { Body, Button, Card, Icon, IconButton, IconName, Label, Mono, Screen, Sheet, Stepper, TopBar } from '@/components/ui';
 import { addDays, dayKey, fmtShortDate } from '@/store/dates';
 import { fmtBig, fromUnit, longestStreak, prsBrokenSince, sessionTut, sessionVolume, toUnit } from '@/store/logic';
 import { useStore } from '@/store/store';
 import { C, F, hexA } from '@/theme';
+import { unpackRoute } from '@/walk/route';
 
 async function persistPhoto(uri: string, base64?: string | null): Promise<string> {
   if (Platform.OS === 'web') return base64 ? `data:image/jpeg;base64,${base64}` : uri;
@@ -39,6 +41,7 @@ export default function GrowthScreen() {
   const prCycle = prsBrokenSince(state.sessions, addDays(new Date(), -28).toISOString());
   const photos = [...state.photos].sort((a, b) => a.date.localeCompare(b.date));
   const viewing = photos.find((p) => p.id === viewer);
+  const walks = [...(state.walks ?? [])].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 
   const addPhoto = async (camera: boolean) => {
     const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, allowsEditing: true, aspect: [3, 4], base64: Platform.OS === 'web' };
@@ -92,6 +95,31 @@ export default function GrowthScreen() {
           </Card>
         ))}
       </View>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 32, marginBottom: 14 }}>
+        <Label color={C.lavender}>Riwayat jalan</Label>
+        <View style={{ flex: 1, height: 1, backgroundColor: C.borderMuted }} />
+        <Pressable onPress={() => router.push('/walks')} hitSlop={8}>
+          <Label color={C.textDim}>Lihat semua ›</Label>
+        </Pressable>
+      </View>
+      {walks.length === 0 ? (
+        <Body size={13} style={{ color: C.textDim }}>
+          Belum ada sesi jalan. Terima quest jalan di Quest Board untuk mulai merekam rute.
+        </Body>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+          {walks.slice(0, 6).map((w) => (
+            <Pressable key={w.id} onPress={() => router.push({ pathname: '/walks/[id]', params: { id: w.id } })} style={styles.walkCard}>
+              <RouteView points={unpackRoute(w.route, new Date(w.startedAt).getTime())} height={96} mini />
+              <Text style={styles.walkKm}>{(w.distanceM / 1000).toFixed(2).replace('.', ',')} km</Text>
+              <Mono size={11} color={C.textDim}>
+                {fmtShortDate(dayKey(w.startedAt))}
+              </Mono>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 32, marginBottom: 14 }}>
         <Label color={C.lavender}>Progress log</Label>
@@ -181,6 +209,8 @@ export default function GrowthScreen() {
 }
 
 const styles = StyleSheet.create({
+  walkCard: { width: 150, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, borderRadius: 12, padding: 8, gap: 4 },
+  walkKm: { fontFamily: F.monoBold, color: C.text, fontSize: 15, marginTop: 4 },
   h1: { fontFamily: F.headline, color: C.text, fontSize: 32, letterSpacing: 1, marginTop: 8, marginBottom: 6 },
   chartBox: { borderRadius: 10, backgroundColor: '#1d1829', padding: 8, paddingTop: 20 },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 16 },

@@ -43,6 +43,18 @@ export class DistanceFilter {
     this.lastRaw = null;
   }
 
+  /** posisi jangkar terakhir (titik rute terakhir yang dihitung) */
+  anchorPoint(): { lat: number; lon: number } | null {
+    return this.anchor ? { lat: this.anchor.lat, lon: this.anchor.lon } : null;
+  }
+
+  /** posisi akhir (rata-rata 2 titik terakhir) untuk menutup rute */
+  endPoint(): { lat: number; lon: number } | null {
+    if (this.buf.length === 0) return null;
+    const tail = this.buf.slice(-2);
+    return { lat: tail.reduce((a, x) => a + x.lat, 0) / tail.length, lon: tail.reduce((a, x) => a + x.lon, 0) / tail.length };
+  }
+
   /**
    * Sisa jarak di akhir rute: posisi halus selalu sedikit tertinggal,
    * jadi saat selesai tambahkan jarak jangkar → rata-rata titik terakhir (jika cukup jauh dari getaran).

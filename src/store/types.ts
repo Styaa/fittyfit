@@ -110,6 +110,8 @@ export interface WalkLog {
   endedAt: string;
   distanceM: number;
   durationSec: number;
+  /** titik rute ringkas (lihat src/walk/route.ts) — tidak ada untuk sesi sebelum fitur rute */
+  route?: [number, number, number, number, number][];
 }
 
 export interface WeightEntry {

@@ -128,6 +128,8 @@ function Gate() {
         <Stack.Screen name="penalty" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="lock" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="walk" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="walks/index" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="walks/[id]" options={{ animation: 'slide_from_right' }} />
       </Stack>
       <RestBanner />
       <WalkBanner />

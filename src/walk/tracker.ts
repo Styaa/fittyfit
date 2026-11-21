@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { DistanceFilter } from './geo';
+import { downsample, packRoute, type PackedPoint, type RoutePoint } from './route';
 
 export const WALK_TASK = 'shadowfit-walk';
 const KEY = 'shadowfit:walk:v1';
@@ -23,6 +24,10 @@ export interface WalkState {
   /** akurasi titik GPS terakhir (meter) */
   lastAcc: number | null;
   lastFixAt: number | null;
+  /** titik rute yang sudah lolos penyaring */
+  route: RoutePoint[];
+  /** nomor segmen (bertambah setiap lanjut setelah jeda) */
+  seg: number;
 }
 
 export interface WalkResult {
@@ -30,11 +35,14 @@ export interface WalkResult {
   endedAt: number;
   distanceM: number;
   durationSec: number;
+  route: PackedPoint[];
 }
 
-const IDLE: WalkState = { active: false, paused: false, startedAt: 0, pausedAt: null, pausedMs: 0, distanceM: 0, lastAcc: null, lastFixAt: null };
+/** status awal — selalu objek & array baru (jangan dibagi antar sesi) */
+const idle = (): WalkState => ({ active: false, paused: false, startedAt: 0, pausedAt: null, pausedMs: 0, distanceM: 0, lastAcc: null, lastFixAt: null, route: [], seg: 0 });
+const LIVE_MAX_POINTS = 3000;
 
-let state: WalkState = { ...IDLE };
+let state: WalkState = idle();
 const filter = new DistanceFilter();
 const listeners = new Set<(s: WalkState) => void>();
 let watchSub: Location.LocationSubscription | null = null;
@@ -55,13 +63,20 @@ function emit() {
 
 function handleLocations(locs: Location.LocationObject[]) {
   if (!state.active || state.paused) return;
-  let added = 0;
   for (const l of locs) {
-    added += filter.push({ lat: l.coords.latitude, lon: l.coords.longitude, acc: l.coords.accuracy ?? null, t: l.timestamp });
+    const add = filter.push({ lat: l.coords.latitude, lon: l.coords.longitude, acc: l.coords.accuracy ?? null, t: l.timestamp });
+    state.distanceM += add;
     state.lastAcc = l.coords.accuracy ?? null;
     state.lastFixAt = l.timestamp;
+    // catat titik rute: saat jarak bertambah, atau titik pertama sebuah segmen
+    const last = state.route[state.route.length - 1];
+    const a = filter.anchorPoint();
+    if (a && (add > 0 || !last || last.seg !== state.seg)) {
+      // array baru (immutable) — React Compiler mengandalkan perubahan referensi untuk merender ulang
+      const next = [...state.route, { lat: a.lat, lon: a.lon, t: l.timestamp, d: state.distanceM, seg: state.seg }];
+      state.route = next.length > LIVE_MAX_POINTS ? downsample(next, LIVE_MAX_POINTS / 2) : next;
+    }
   }
-  state.distanceM += added;
   emit();
 }
 
@@ -128,9 +143,9 @@ export async function loadWalk() {
   loaded = true;
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    if (raw) state = { ...IDLE, ...JSON.parse(raw) };
+    if (raw) state = { ...idle(), ...JSON.parse(raw) };
   } catch {
-    state = { ...IDLE };
+    state = idle();
   }
   filter.reset();
   emit();
@@ -147,28 +162,37 @@ export async function startWalk(): Promise<StartError | null> {
     const perm = await Location.requestForegroundPermissionsAsync();
     if (!perm.granted) return 'denied';
     if (native && !(await Location.hasServicesEnabledAsync())) return 'gps-off';
-    state = { ...IDLE, active: true, startedAt: Date.now() };
+    state = { ...idle(), active: true, startedAt: Date.now() };
     filter.reset();
     emit();
     await startUpdates();
     return null;
   } catch {
-    state = { ...IDLE };
+    state = idle();
     emit();
     return 'error';
   }
 }
 
+/** tutup segmen: tambahkan sisa jarak & titik akhir rute */
+function closeSegment() {
+  const extra = filter.flush();
+  const end = filter.endPoint();
+  state.distanceM += extra;
+  if (end && extra > 0) state.route = [...state.route, { lat: end.lat, lon: end.lon, t: state.lastFixAt ?? Date.now(), d: state.distanceM, seg: state.seg }];
+}
+
 export async function pauseWalk() {
   if (!state.active || state.paused) return;
   await stopUpdates();
-  state = { ...state, distanceM: state.distanceM + filter.flush(), paused: true, pausedAt: Date.now() };
+  closeSegment();
+  state = { ...state, paused: true, pausedAt: Date.now() };
   emit();
 }
 
 export async function resumeWalk() {
   if (!state.active || !state.paused) return;
-  state = { ...state, paused: false, pausedMs: state.pausedMs + (Date.now() - (state.pausedAt ?? Date.now())), pausedAt: null };
+  state = { ...state, paused: false, pausedMs: state.pausedMs + (Date.now() - (state.pausedAt ?? Date.now())), pausedAt: null, seg: state.seg + 1 };
   filter.reset(); // jangan hitung jarak selama jeda
   emit();
   await startUpdates();
@@ -177,17 +201,23 @@ export async function resumeWalk() {
 export async function finishWalk(): Promise<WalkResult | null> {
   if (!state.active) return null;
   await stopUpdates();
-  if (!state.paused) state.distanceM += filter.flush();
+  if (!state.paused) closeSegment();
   const endedAt = Date.now();
-  const result: WalkResult = { startedAt: state.startedAt, endedAt, distanceM: Math.round(state.distanceM), durationSec: Math.round(walkElapsed(state, endedAt)) };
-  state = { ...IDLE };
+  const result: WalkResult = {
+    startedAt: state.startedAt,
+    endedAt,
+    distanceM: Math.round(state.distanceM),
+    durationSec: Math.round(walkElapsed(state, endedAt)),
+    route: packRoute(state.route, state.startedAt),
+  };
+  state = idle();
   emit();
   return result;
 }
 
 export async function discardWalk() {
   await stopUpdates();
-  state = { ...IDLE };
+  state = idle();
   emit();
 }
 

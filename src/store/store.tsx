@@ -41,8 +41,13 @@ function makeActions(update: (fn: Updater) => void) {
               active: { id: uid(), workoutId: workout.id, workoutName: workout.name, startedAt: new Date().toISOString(), sets: [], xp: 0 },
             },
       ),
-    addWalk: (w: Omit<WalkLog, 'id'>) =>
-      update((s) => (w.distanceM <= 0 ? s : { ...s, walks: [...(s.walks ?? []), { id: uid(), ...w }] })),
+    /** simpan sesi jalan, kembalikan id-nya */
+    addWalk: (w: Omit<WalkLog, 'id'>) => {
+      const id = uid();
+      update((s) => (w.distanceM <= 0 ? s : { ...s, walks: [...(s.walks ?? []), { id, ...w }] }));
+      return w.distanceM > 0 ? id : null;
+    },
+    deleteWalk: (id: string) => update((s) => ({ ...s, walks: (s.walks ?? []).filter((w) => w.id !== id) })),
     /** tandai level sudah dirayakan (menutup pop-up level up) */
     ackLevel: (level: number) => update((s) => (level > (s.seenLevel ?? 0) ? { ...s, seenLevel: level } : s)),
     startRest: (t: RestTimer) => update((s) => ({ ...s, restTimer: t })),

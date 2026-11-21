@@ -3,7 +3,9 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { RouteView } from '@/components/route-view';
 import { Body, Button, Card, Icon, IconButton, Label, Mono, ProgressBar, Screen, TopBar } from '@/components/ui';
+import { WalkDetail } from '@/components/walk-detail';
 import { dayKey, fmtClock } from '@/store/dates';
 import { QUESTS, questPeriod, questStatus, walkedKm, WALK_AGI_PER_KM } from '@/store/logic';
 import { useStore } from '@/store/store';
@@ -34,7 +36,7 @@ export default function WalkScreen() {
   const walk = useWalk();
   const [err, setErr] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
-  const [summary, setSummary] = useState<null | { km: number; sec: number; pace: string; agi: number; cleared: string[] }>(null);
+  const [summary, setSummary] = useState<null | { walkId: string | null; cleared: string[] }>(null);
 
   const walkQuests = QUESTS.filter((q) => q.walkKm);
   const accepted = walkQuests.filter((q) => questStatus(state, q).accepted);
@@ -58,27 +60,35 @@ export default function WalkScreen() {
       const before = accepted.filter((q) => questStatus(state, q).done).map((q) => q.id);
       const res = await finishWalk();
       if (!res) return;
-      actions.addWalk({ startedAt: new Date(res.startedAt).toISOString(), endedAt: new Date(res.endedAt).toISOString(), distanceM: res.distanceM, durationSec: res.durationSec });
+      const walkId = actions.addWalk({
+        startedAt: new Date(res.startedAt).toISOString(),
+        endedAt: new Date(res.endedAt).toISOString(),
+        distanceM: res.distanceM,
+        durationSec: res.durationSec,
+        route: res.route,
+      });
       const total = savedKm + res.distanceM / 1000;
       const cleared = accepted.filter((q) => total >= (q.walkKm ?? Infinity) && !before.includes(q.id)).map((q) => q.title);
       if (state.settings.haptics && Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      setSummary({ km: res.distanceM / 1000, sec: res.durationSec, pace: fmtPace(res.distanceM, res.durationSec), agi: (res.distanceM / 1000) * WALK_AGI_PER_KM, cleared });
+      setSummary({ walkId, cleared });
     });
 
   // ---------- ringkasan ----------
-  if (summary)
+  if (summary) {
+    const saved = (state.walks ?? []).find((w) => w.id === summary.walkId);
     return (
-      <Screen header={<TopBar left={<IconButton name="close" onPress={leave} />} title="Mode Jalan" />}>
-        <View style={{ alignItems: 'center', marginTop: 24 }}>
+      <Screen padBottom={40} header={<TopBar left={<IconButton name="close" onPress={leave} />} title="Mode Jalan" />}>
+        <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 16 }}>
           <Label color={C.success}>Perjalanan selesai</Label>
-          <Text style={styles.bigKm}>{summary.km.toFixed(2).replace('.', ',')}</Text>
-          <Mono color={C.textDim}>KILOMETER</Mono>
+          <Text style={styles.doneTitle}>SHADOW WALK CLEARED</Text>
         </View>
-        <View style={styles.statsRow}>
-          <Stat label="Durasi" value={fmtClock(summary.sec)} />
-          <Stat label="Pace /km" value={summary.pace} />
-          <Stat label="AGI (poin)" value={`+${summary.agi.toFixed(1).replace('.', ',')}`} accent />
-        </View>
+        {saved ? (
+          <WalkDetail walk={saved} />
+        ) : (
+          <Card>
+            <Body center>Jarak terlalu pendek untuk disimpan.</Body>
+          </Card>
+        )}
         {summary.cleared.length > 0 ? (
           <Card tone="success" style={{ marginTop: 20 }}>
             <Label color={C.success}>Quest tercapai</Label>
@@ -93,8 +103,10 @@ export default function WalkScreen() {
           </Card>
         ) : null}
         <Button label="Ke Quest Board" icon="sword-cross" size="lg" onPress={() => router.replace('/quests')} style={{ marginTop: 24 }} />
+        <Button label="Riwayat Jalan" icon="history" variant="ghost" onPress={() => router.replace('/walks')} style={{ marginTop: 10 }} />
       </Screen>
     );
+  }
 
   return (
     <Screen padBottom={40} header={<TopBar left={<IconButton name="chevron-left" onPress={leave} />} title="Mode Jalan" />}>
@@ -113,6 +125,12 @@ export default function WalkScreen() {
         <Stat label="Pace /km" value={fmtPace(walk.distanceM, elapsed)} />
         <Stat label="Hari ini" value={`${liveKm.toFixed(2).replace('.', ',')} km`} accent />
       </View>
+
+      {walk.active && walk.route.length >= 2 && (
+        <View style={{ marginTop: 14 }}>
+          <RouteView points={walk.route} height={170} live />
+        </View>
+      )}
 
       {walk.active && (
         <Mono size={11} color={C.textFaint} style={{ textAlign: 'center', marginTop: 10 }}>
@@ -184,6 +202,14 @@ export default function WalkScreen() {
         </Pressable>
       )}
 
+      {!walk.active && (
+        <Pressable onPress={() => router.push('/walks')} style={styles.historyLink}>
+          <Icon name="history" size={18} color={C.lavender} />
+          <Text style={styles.historyText}>Riwayat jalan ({(state.walks ?? []).length})</Text>
+          <Icon name="chevron-right" size={18} color={C.textFaint} />
+        </Pressable>
+      )}
+
       <Body size={12} center style={{ marginTop: 20, color: C.textFaint }}>
         Lokasi hanya dipakai selama Mode Jalan aktif dan tidak dikirim ke mana pun. Pelacakan tetap berjalan saat layar mati (lihat notifikasi “Mode Jalan aktif”). Setiap 1 km =
         +1 poin AGI. Hari ini: {dayKey()}.
@@ -204,6 +230,9 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 }
 
 const styles = StyleSheet.create({
+  doneTitle: { fontFamily: F.display, color: C.lavenderSoft, fontSize: 26, marginTop: 4, textShadowColor: 'rgba(196,181,253,0.5)', textShadowRadius: 14 },
+  historyLink: { flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'center', marginTop: 18, borderWidth: 1, borderColor: C.border, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9 },
+  historyText: { fontFamily: F.title, color: C.lavender, fontSize: 13, letterSpacing: 1 },
   dot: { width: 9, height: 9, borderRadius: 5 },
   status: { fontFamily: F.mono, color: C.textMuted, fontSize: 13, letterSpacing: 1.5 },
   bigKm: { fontFamily: F.display, color: C.lavenderSoft, fontSize: 84, lineHeight: 92, marginTop: 6 },
